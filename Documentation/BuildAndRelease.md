@@ -5,7 +5,7 @@ This guide covers Roam Control's development builds and the planned IPA workflow
 ## Current release identity
 
 - Marketing version: `0.9.2`
-- Current build: `53`
+- Current build: `56`
 - Bundle identifier: `com.sean.roamcontrol`
 - Minimum deployment target: iOS 27
 - Supported device family: iPhone
@@ -59,9 +59,10 @@ Before creating an archive:
 4. Use the Release configuration.
 5. Confirm the app icon and display name.
 6. Set and verify the build timestamp.
-7. For a public build, set the TelemetryDeck App ID and namespace and confirm no secret token is present.
-8. Confirm `RoamPairingFFI.xcframework` is embedded and signed.
-9. Build once for a physical iPhone.
+7. For a configured public build, set the self-hosted ingestion token and any TelemetryDeck identifiers in the ignored private configuration.
+8. Confirm no live ingestion token is tracked or shown in the staged diff.
+9. Confirm `RoamPairingFFI.xcframework` is embedded and signed.
+10. Build once for a physical iPhone.
 
 Then select **Any iOS Device (arm64)** and choose **Product → Archive**. Xcode opens Organizer after a successful archive.
 
@@ -83,14 +84,17 @@ Do not treat an Xcode Debug `.app` folder renamed to `.ipa` as a release package
 
 ## Privacy statistics configuration
 
-Optional statistics are sent directly to TelemetryDeck's Ingest API. Roam Control does not embed its SDK and permits only the event names and app/build values defined in `UsageAnalyticsService.swift`.
+Optional statistics are sent by Roam Control's narrow first-party client. A configured release sends in parallel to the maintainer-operated HTTPS endpoint and TelemetryDeck's Ingest API. Roam Control does not embed an analytics SDK and permits only the event names and fixed fields defined in `UsageAnalyticsService.swift`.
 
-Two build settings configure a public release:
+Three private build settings configure those destinations:
 
+- `ROAMCONTROL_SELFHOSTED_TELEMETRY_TOKEN`
 - `ROAMCONTROL_TELEMETRY_APP_ID`
 - `ROAMCONTROL_TELEMETRY_NAMESPACE`
 
-These are ingestion identifiers, not an account password or API token. They are blank in the tracked `Configuration/Local.xcconfig`. Copy `Configuration/Local.private.xcconfig.example` to the ignored `Configuration/Local.private.xcconfig` and set both values only for a configured local or release build. The same private file can hold the local `DEVELOPMENT_TEAM`. Without both TelemetryDeck values, the client sends nothing. Keeping the live destination and signing identity outside the public project prevents forks from accidentally adding data to Roam Control's dashboard or inheriting the repository owner's Apple team.
+The self-hosted ingestion token is sensitive configuration and must never be committed, printed in release notes or included in a patch. The TelemetryDeck App ID and namespace are ingestion identifiers rather than account credentials, but they remain blank in tracked defaults. Copy `Configuration/Local.private.xcconfig.example` to the ignored `Configuration/Local.private.xcconfig` and set values only for a configured local or release build. The same private file can hold the local `DEVELOPMENT_TEAM`.
+
+The self-hosted endpoint URL is public configuration in `RoamControl-Info.plist`; without its private token it sends nothing. TelemetryDeck requires both of its private values. If both destinations are configured, the same consent-gated fixed event is sent to each in parallel. If neither destination is fully configured, no request is made.
 
 Before packaging a configured build, inspect the event structure, confirm the privacy disclosure still matches it, and run the privacy rows in the regression checklist. Never add coordinates, place text, searches, saved locations, routes, pairing material, device names, user-supplied text or diagnostic content to an event.
 

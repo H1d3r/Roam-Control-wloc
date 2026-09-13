@@ -4,9 +4,12 @@ All notable public changes to Roam Control are recorded here.
 
 ## [Unreleased]
 
-0.9.2 Beta 3, corresponding to app version 0.9.2 Build 53.
+0.9.2 Beta 5, corresponding to app version 0.9.2 Build 56.
 
 ### Fixed
+
+- Build 55: validate each generated location continued-processing identifier against the app's runtime permitted-identifier list before registration; reject obsolete or cancelled location-task launch callbacks and submission completions.
+- Build 55: expose only fixed location-task configuration and registration states in copied diagnostics. These checks narrow configuration and lifecycle failures but do not establish that iOS `schedulerRegistration` failures are fixed.
 
 - Build 53: guard submission before scheduling and cancel obsolete completions; keep pairing busy during secure storage and guard its completion; report terminal failure once per attempt, including teardown after cancellation.
 
@@ -25,6 +28,9 @@ All notable public changes to Roam Control are recorded here.
 
 ### Improved
 
+- Added the consent-gated first-party self-hosted telemetry destination. Configured beta builds continue sending the same fixed event to TelemetryDeck in parallel; no location, pairing material, free-form error text or diagnostics are added.
+- Updated the in-app and repository privacy disclosures for both telemetry destinations, HTTPS connection metadata, the self-hosted live database's daily 90-day retention, backup/access-log limitations and consent withdrawal behaviour.
+
 - Connection Health now verifies TCP reachability of the matched pairing service, and explains that secure session verification happens during session startup.
 - Added fixed failure-stage and operation categories to optional telemetry, including recoverable native startup failures and background-task submission failures.
 - Added connection-help, manual retry and successful-after-retry events to show recoverable connection friction.
@@ -33,7 +39,11 @@ All notable public changes to Roam Control are recorded here.
 
 ### Validation and remaining work
 
-- Debug/Release builds, native restoration tests, classification checks and IPA verification passed.
+- Build 54 was a private diagnostic build focused only on location-task registration validation and copied diagnostics. It was not committed, its exact source was not retained in Git, and external validation was limited. Build 55 reconstructs and carries forward that narrow intent; Build 54 must not be cited as proof of a scheduler fix.
+- A targeted Build 29 versus current audit found no material change to the generated location-task identifier pattern, permitted wildcard configuration, registration API call or immediate-run strategy. Later builds added recovery paths and asynchronous lifecycle guards. The missing location callback identity guard was a plausible stale-callback risk after a retry, but it does not explain `register(...) == false` by itself.
+- Build 56 consent gating was verified on the final SideStore-installed release candidate against the live self-hosted backend. After sharing was explicitly disabled, a force-close and relaunch produced no new self-hosted event. After sharing was enabled, participation and activation events were accepted by the backend. This verifies the Build 56 self-hosted consent gate; separate TelemetryDeck request verification remains open.
+
+- Build 56 source invariants and release checks passed on the owner's Mac. The final unsigned Release IPA passed ZIP and identity checks, was installed through SideStore, and passed owner-device fixed-location, Stop & Restore and self-hosted telemetry consent-gating validation.
 - Owner-device Build 53 testing passed repeated pairing cancellation and subsequent pairing, Wi-Fi automatic recovery, 5G startup/guidance, and quick stop/restore on both networks. Recoverable scheduler classification matched the active session diagnostics.
 - First pairing attempt timed out; suspected manual-step delay is unconfirmed. Immediate retry succeeded.
 - The Build 52 restoration delay was not reproduced. Affected-user pairing/session reports and other-VPN interference remain open; no universal fix is claimed.

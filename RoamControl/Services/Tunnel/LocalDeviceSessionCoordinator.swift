@@ -77,6 +77,8 @@ final class LocalDeviceSessionCoordinator: NSObject {
 
     private(set) var restorationStatus = "Not requested"
     private(set) var schedulerFailureReason: SchedulerFailureReason?
+    private(set) var taskConfigurationStatus: BackgroundTaskConfigurationStatus = .notChecked
+    private(set) var taskRegistrationStatus: BackgroundTaskRegistrationStatus = .notAttempted
     private(set) var lastFailureStage: FailureStage?
     private(set) var lastFailureDisposition: FailureDisposition?
     var onRecoveryNeeded: ((FailureStage) -> Void)?
@@ -155,6 +157,8 @@ final class LocalDeviceSessionCoordinator: NSObject {
         terminalFailureReported = false
         retryTelemetry.reset()
         schedulerFailureReason = nil
+        taskConfigurationStatus = .notChecked
+        taskRegistrationStatus = .notAttempted
         lastFailureStage = nil
         lastFailureDisposition = nil
         restorationStatus = "Not requested"
@@ -500,6 +504,14 @@ final class LocalDeviceSessionCoordinator: NSObject {
 
         phase = .connecting
         let identifier = "\(Self.taskIdentifierPrefix).\(UUID().uuidString)"
+        taskConfigurationStatus = BackgroundTaskIdentifier.configurationStatus(for: identifier)
+        taskRegistrationStatus = .notAttempted
+
+        guard taskConfigurationStatus == .permitted else {
+            fail("iOS could not prepare the location session. Close Roam Control, reopen it, and try again.")
+            return
+        }
+
         let wasRegistered = BGTaskScheduler.shared.register(
             forTaskWithIdentifier: identifier,
             using: .main
@@ -514,10 +526,17 @@ final class LocalDeviceSessionCoordinator: NSObject {
                     task.setTaskCompleted(success: false)
                     return
                 }
+                guard self.submittedTaskIdentifier == identifier,
+                      self.phase == .connecting,
+                      !self.cancellationRequested else {
+                    task.setTaskCompleted(success: false)
+                    return
+                }
                 self.beginLocationSession(with: task)
             }
         }
 
+        taskRegistrationStatus = wasRegistered ? .accepted : .rejected
         guard wasRegistered else {
             fail("iOS could not prepare the location session. Close Roam Control, reopen it, and try again.")
             return
@@ -532,15 +551,21 @@ final class LocalDeviceSessionCoordinator: NSObject {
         request.strategy = .fail
 
         Task {
+            guard submittedTaskIdentifier == identifier,
+                  phase == .connecting,
+                  !cancellationRequested else { return }
             do {
                 try await BGTaskScheduler.shared.submitTaskRequest(request)
+                if submittedTaskIdentifier != identifier || cancellationRequested {
+                    BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: identifier)
+                }
             } catch {
+                BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: identifier)
                 guard self.submittedTaskIdentifier == identifier, self.phase == .connecting else { return }
                 self.schedulerFailureReason = SchedulerFailureReason.classify(error)
                 self.lastFailureStage = .schedulerSubmission
                 self.lastFailureDisposition = .recoverable
                 self.onRecoveryNeeded?(.schedulerSubmission)
-                BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: identifier)
                 self.submittedTaskIdentifier = nil
                 self.resolvedService = nil
                 if self.isMobileDataStartupMode {

@@ -20,6 +20,7 @@ struct UsageStatisticsPrivacyView: View {
                 privacyRow("Introduction completed", symbol: "sparkles")
                 privacyRow("Connection help, retry and retry success counts", symbol: "arrow.clockwise")
                 privacyRow("Fixed failure stage, scheduler reason, operation and recovery category", symbol: "exclamationmark.triangle")
+                privacyRow("Fixed location-task configuration and registration state on scheduler failures", symbol: "gearshape.2")
                 privacyRow("Pairing completed", symbol: "iphone.and.arrow.forward")
                 privacyRow("Fixed or walking session started", symbol: "figure.walk")
                 privacyRow("Active location updated", symbol: "location.fill")
@@ -38,13 +39,16 @@ struct UsageStatisticsPrivacyView: View {
                 Text("A random identifier is created for this installation and irreversibly hashed before it is sent. It is used only to estimate activity from participating installations.")
                     .foregroundStyle(.secondary)
 
-                Text("Turning sharing off immediately stops new reporting and removes the identifier from Roam Control. It cannot withdraw anonymous events already received by TelemetryDeck.")
+                Text("Turning sharing off stops new reporting, cancels requests still in progress where possible and removes the identifier from Roam Control. It cannot withdraw anonymous events already received.")
                     .foregroundStyle(.secondary)
 
-                Text("TelemetryDeck says it does not store IP addresses. Anonymous events may be retained for roughly 7–10 years, with no guaranteed exact deletion date.")
+                Text("Events are sent to Roam Control's maintainer-operated service and, in configured beta builds, TelemetryDeck. The self-hosted service receives ordinary HTTPS connection metadata, such as the source IP address, but the app does not include it in the event body.")
                     .foregroundStyle(.secondary)
 
-                Text("Roam Control uses a narrow first-party sender instead of an analytics SDK, so extra device metadata cannot be added automatically.")
+                Text("The self-hosted service runs daily maintenance that deletes live events older than 90 days. No fixed deletion schedule is promised for database backups or web-server access logs. TelemetryDeck says it does not store IP addresses and may retain anonymous events for roughly 7–10 years without guaranteeing an exact deletion date.")
+                    .foregroundStyle(.secondary)
+
+                Text("Roam Control uses a narrow first-party sender instead of an analytics SDK, so extra device metadata is not added automatically.")
                     .foregroundStyle(.secondary)
             }
         }

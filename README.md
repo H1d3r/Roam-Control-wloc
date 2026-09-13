@@ -9,14 +9,14 @@
 </p>
 
 <p align="center">
-  <strong>Public beta:</strong> 0.9.2 Beta 3 (Build 53) · <strong>Requires:</strong> iOS 27+
+  <strong>Public beta:</strong> 0.9.2 Beta 5 (Build 56) · <strong>Requires:</strong> iOS 27+
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/iOS-27%2B-blue" alt="iOS 27+">
   <img src="https://img.shields.io/badge/UI-SwiftUI-orange" alt="SwiftUI">
-  <img src="https://img.shields.io/badge/Beta-3-purple" alt="Beta 3">
-  <img src="https://img.shields.io/badge/Build-53-lightgrey" alt="Build 53">
+  <img src="https://img.shields.io/badge/Beta-5-purple" alt="Beta 5">
+  <img src="https://img.shields.io/badge/Build-56-lightgrey" alt="Build 56">
   <img src="https://img.shields.io/badge/License-PolyForm%20NC%201.0.0-blue" alt="PolyForm Noncommercial 1.0.0">
 </p>
 
@@ -85,9 +85,9 @@ The pairing record is stored in the iPhone Keychain and is never uploaded.
 
 Locations, coordinates, searches, favourites, history, walking routes and pairing records stay on the iPhone.
 
-Anonymous usage statistics are optional and off by default. When enabled, a narrow first-party sender reports only a fixed set of activity events, the app version/build and a hashed random installation identifier. It never sends locations, searches, routes, pairing data, device names or diagnostics. No third-party analytics SDK is embedded.
+Anonymous usage statistics are optional and off by default. When enabled, a narrow first-party sender reports only a fixed set of activity events, app version/build, hashed random installation identifier and fixed failure/scheduler categories to the maintainer-operated service and, in configured beta builds, TelemetryDeck. It never sends locations, searches, routes, pairing data, device names, raw error messages or diagnostic reports. No third-party analytics SDK is embedded.
 
-The public project has no live analytics destination or Apple signing team. A checkout therefore sends no statistics unless the builder deliberately supplies a private local configuration.
+The public project contains the self-hosted ingestion URL but no ingestion token, TelemetryDeck identifiers or Apple signing team. A checkout therefore sends no statistics unless the builder deliberately supplies a private local configuration.
 
 Read [Privacy](Documentation/Privacy.md) for the exact event and retention disclosure.
 

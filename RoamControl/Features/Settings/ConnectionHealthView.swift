@@ -322,6 +322,8 @@ struct ConnectionHealthView: View {
         Last session issue stage (this launch): \(appModel.deviceSession.lastFailureStage?.rawValue ?? "None")
         Last session issue disposition: \(appModel.deviceSession.lastFailureDisposition?.rawValue ?? "None")
         Session scheduler reason (this launch): \(appModel.deviceSession.schedulerFailureReason?.rawValue ?? "None")
+        Location task configuration: \(appModel.deviceSession.taskConfigurationStatus.rawValue)
+        Location task registration: \(appModel.deviceSession.taskRegistrationStatus.rawValue)
         Restoration: \(appModel.deviceSession.restorationStatus)
         Last connection check: \(checked)
         Connection check result: \(diagnosticResultStatus)

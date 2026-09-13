@@ -38,6 +38,7 @@ final class UsageAnalyticsService {
     private var consentRevision = 0
     private var participationAttemptID: UUID?
     private var lastActivationDate: Date?
+    private var pendingRequests: [UUID: Task<Void, Never>] = [:]
 
     init(preferences: UserDefaults = .standard) {
         self.preferences = preferences
@@ -54,7 +55,8 @@ final class UsageAnalyticsService {
 
     func recordActivation(enabled: Bool) {
         reportingEnabled = enabled
-        guard enabled, let configuration = Self.configuration else { return }
+        let destinations = Self.destinations
+        guard enabled, destinations.hasConfiguredDestination else { return }
 
         let now = Date.now
         if let lastActivationDate, now.timeIntervalSince(lastActivationDate) < 3 {
@@ -62,31 +64,56 @@ final class UsageAnalyticsService {
         }
         lastActivationDate = now
 
-        reportParticipationIfNeeded(configuration: configuration)
-        send(.appActivated, configuration: configuration)
+        reportParticipationIfNeeded(destinations: destinations)
+        send(.appActivated, destinations: destinations)
     }
 
     func record(_ event: UsageAnalyticsEvent, enabled: Bool) {
-        guard enabled, let configuration = Self.configuration else { return }
-        send(event, configuration: configuration)
+        let destinations = Self.destinations
+        guard enabled, destinations.hasConfiguredDestination else { return }
+        reportingEnabled = true
+        send(event, destinations: destinations)
     }
 
     func revokeLocalIdentity() {
         reportingEnabled = false
         consentRevision += 1
+        pendingRequests.values.forEach { $0.cancel() }
+        pendingRequests.removeAll()
         participationAttemptID = nil
         lastActivationDate = nil
         preferences.removeObject(forKey: Self.anonymousIdentifierKey)
         preferences.removeObject(forKey: Self.hasReportedParticipationKey)
     }
 
-    func recordFailure(_ stage: FailureStage, context: FailureContext, disposition: FailureDisposition = .terminal, schedulerReason: SchedulerFailureReason? = nil, enabled: Bool) {
-        guard enabled, let configuration = Self.configuration else { return }
-        send(disposition.event, configuration: configuration, failure: (stage, context, disposition, schedulerReason))
+    func recordFailure(
+        _ stage: FailureStage,
+        context: FailureContext,
+        disposition: FailureDisposition = .terminal,
+        schedulerReason: SchedulerFailureReason? = nil,
+        taskConfigurationStatus: BackgroundTaskConfigurationStatus? = nil,
+        taskRegistrationStatus: BackgroundTaskRegistrationStatus? = nil,
+        enabled: Bool
+    ) {
+        let destinations = Self.destinations
+        guard enabled, destinations.hasConfiguredDestination else { return }
+        reportingEnabled = true
+        send(
+            disposition.event,
+            destinations: destinations,
+            failure: (
+                stage,
+                context,
+                disposition,
+                schedulerReason,
+                taskConfigurationStatus,
+                taskRegistrationStatus
+            )
+        )
     }
 
     private func reportParticipationIfNeeded(
-        configuration: AnalyticsConfiguration
+        destinations: AnalyticsDestinations
     ) {
         guard
             !preferences.bool(forKey: Self.hasReportedParticipationKey),
@@ -97,7 +124,7 @@ final class UsageAnalyticsService {
         let revision = consentRevision
         participationAttemptID = attemptID
 
-        send(.participationStarted, configuration: configuration) { [weak self] succeeded in
+        send(.participationStarted, destinations: destinations) { [weak self] succeeded in
             guard let self, self.participationAttemptID == attemptID else { return }
             self.participationAttemptID = nil
             guard
@@ -111,12 +138,19 @@ final class UsageAnalyticsService {
 
     private func send(
         _ event: UsageAnalyticsEvent,
-        configuration: AnalyticsConfiguration,
-        failure: (FailureStage, FailureContext, FailureDisposition, SchedulerFailureReason?)? = nil,
+        destinations: AnalyticsDestinations,
+        failure: (
+            FailureStage,
+            FailureContext,
+            FailureDisposition,
+            SchedulerFailureReason?,
+            BackgroundTaskConfigurationStatus?,
+            BackgroundTaskRegistrationStatus?
+        )? = nil,
         completion: (@MainActor (Bool) -> Void)? = nil
     ) {
         var payload = Self.safePayload
-        if let (stage, context, disposition, schedulerReason) = failure {
+        if let (stage, context, disposition, schedulerReason, _, _) = failure {
             if let schedulerReason {
                 payload["RoamControl.schedulerReason"] = schedulerReason.rawValue
             }
@@ -124,37 +158,122 @@ final class UsageAnalyticsService {
             payload["RoamControl.failureStage"] = stage.rawValue
             payload["RoamControl.failureContext"] = context.rawValue
         }
-        let body = AnalyticsSignal(
-            appID: configuration.appID,
-            clientUser: anonymousClientIdentifier,
-            type: event.rawValue,
-            isTestMode: Self.isDebugBuild,
-            payload: payload
+        let clientIdentifier = anonymousClientIdentifier
+
+        let telemetryDeckRequest: URLRequest? = destinations.telemetryDeck.flatMap { configuration -> URLRequest? in
+            let body = AnalyticsSignal(
+                appID: configuration.appID,
+                clientUser: clientIdentifier,
+                type: event.rawValue,
+                isTestMode: Self.isDebugBuild,
+                payload: payload
+            )
+            guard let data = try? JSONEncoder().encode([body]) else { return nil }
+
+            var request = URLRequest(url: configuration.endpoint)
+            request.httpMethod = "POST"
+            request.httpBody = data
+            request.cachePolicy = .reloadIgnoringLocalCacheData
+            request.setValue(
+                "application/json; charset=utf-8",
+                forHTTPHeaderField: "Content-Type"
+            )
+            return request
+        }
+
+        let session = urlSession
+        let requestID = UUID()
+        let revision = consentRevision
+        let task = Task { [weak self] in
+            guard let self else { return }
+            defer { self.pendingRequests[requestID] = nil }
+            guard self.reportingEnabled,
+                  self.consentRevision == revision,
+                  !Task.isCancelled else { return }
+
+            async let telemetryDeckSucceeded: Bool = Self.sendTelemetryDeckRequest(
+                telemetryDeckRequest,
+                session: session
+            )
+            async let selfHostedSucceeded: Bool = Self.sendSelfHostedEvent(
+                event,
+                clientIdentifier: clientIdentifier,
+                failure: failure,
+                configuration: destinations.selfHosted,
+                session: session
+            )
+
+            let results = await (telemetryDeckSucceeded, selfHostedSucceeded)
+            guard self.reportingEnabled,
+                  self.consentRevision == revision,
+                  !Task.isCancelled else { return }
+            completion?(results.0 || results.1)
+        }
+        pendingRequests[requestID] = task
+    }
+
+    private static func sendTelemetryDeckRequest(
+        _ request: URLRequest?,
+        session: URLSession
+    ) async -> Bool {
+        guard let request else { return false }
+        do {
+            let (_, response) = try await session.data(for: request)
+            let statusCode = (response as? HTTPURLResponse)?.statusCode
+            return statusCode.map { (200..<300).contains($0) } ?? false
+        } catch {
+            return false
+        }
+    }
+
+    private static func sendSelfHostedEvent(
+        _ event: UsageAnalyticsEvent,
+        clientIdentifier: String,
+        failure: (
+            FailureStage,
+            FailureContext,
+            FailureDisposition,
+            SchedulerFailureReason?,
+            BackgroundTaskConfigurationStatus?,
+            BackgroundTaskRegistrationStatus?
+        )?,
+        configuration: SelfHostedAnalyticsConfiguration?,
+        session: URLSession
+    ) async -> Bool {
+        guard let configuration else { return false }
+
+        let payload = SelfHostedAnalyticsSignal(
+            eventTime: ISO8601DateFormatter().string(from: .now),
+            eventName: event.rawValue,
+            appVersion: appVersion,
+            buildNumber: Int(buildNumber),
+            installationID: clientIdentifier,
+            failureContext: failure?.1.rawValue,
+            failureStage: failure?.0.rawValue,
+            failureDisposition: failure?.2.rawValue,
+            schedulerReason: failure?.3?.rawValue,
+            locationTaskConfiguration: failure?.4?.rawValue,
+            locationTaskRegistration: failure?.5?.rawValue
         )
 
-        guard let data = try? JSONEncoder().encode([body]) else {
-            completion?(false)
-            return
-        }
+        guard let data = try? JSONEncoder().encode(payload) else { return false }
 
         var request = URLRequest(url: configuration.endpoint)
         request.httpMethod = "POST"
         request.httpBody = data
         request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(
-            "application/json; charset=utf-8",
-            forHTTPHeaderField: "Content-Type"
+            "Bearer \(configuration.token)",
+            forHTTPHeaderField: "Authorization"
         )
 
-        let session = urlSession
-        Task {
-            do {
-                let (_, response) = try await session.data(for: request)
-                let statusCode = (response as? HTTPURLResponse)?.statusCode
-                completion?(statusCode.map { (200..<300).contains($0) } ?? false)
-            } catch {
-                completion?(false)
-            }
+        do {
+            let (_, response) = try await session.data(for: request)
+            let statusCode = (response as? HTTPURLResponse)?.statusCode
+            return statusCode.map { (200..<300).contains($0) } ?? false
+        } catch {
+            return false
         }
     }
 
@@ -183,6 +302,30 @@ final class UsageAnalyticsService {
         return AnalyticsConfiguration(appID: appID, endpoint: endpoint)
     }
 
+    private static var selfHostedConfiguration: SelfHostedAnalyticsConfiguration? {
+        guard
+            let endpointValue = configuredValue(
+                for: "RoamControlSelfHostedTelemetryEndpoint"
+            ),
+            let endpoint = URL(string: endpointValue),
+            let token = configuredValue(
+                for: "RoamControlSelfHostedTelemetryToken"
+            )
+        else { return nil }
+
+        return SelfHostedAnalyticsConfiguration(
+            endpoint: endpoint,
+            token: token
+        )
+    }
+
+    private static var destinations: AnalyticsDestinations {
+        AnalyticsDestinations(
+            telemetryDeck: configuration,
+            selfHosted: selfHostedConfiguration
+        )
+    }
+
     private static func configuredValue(for key: String) -> String? {
         guard let value = Bundle.main.object(forInfoDictionaryKey: key) as? String else {
             return nil
@@ -193,17 +336,22 @@ final class UsageAnalyticsService {
         return trimmed
     }
 
-    private static var safePayload: [String: String] {
-        let version = Bundle.main.object(
+    private static var appVersion: String {
+        Bundle.main.object(
             forInfoDictionaryKey: "CFBundleShortVersionString"
         ) as? String ?? "Unknown"
-        let build = Bundle.main.object(
+    }
+
+    private static var buildNumber: String {
+        Bundle.main.object(
             forInfoDictionaryKey: "CFBundleVersion"
         ) as? String ?? "Unknown"
+    }
 
-        return [
-            "RoamControl.appVersion": version,
-            "RoamControl.buildNumber": build
+    private static var safePayload: [String: String] {
+        [
+            "RoamControl.appVersion": appVersion,
+            "RoamControl.buildNumber": buildNumber
         ]
     }
 
@@ -219,6 +367,48 @@ final class UsageAnalyticsService {
         SHA256.hash(data: Data(value.utf8))
             .map { String(format: "%02x", $0) }
             .joined()
+    }
+}
+
+private struct SelfHostedAnalyticsConfiguration {
+    let endpoint: URL
+    let token: String
+}
+
+private struct AnalyticsDestinations {
+    let telemetryDeck: AnalyticsConfiguration?
+    let selfHosted: SelfHostedAnalyticsConfiguration?
+
+    var hasConfiguredDestination: Bool {
+        telemetryDeck != nil || selfHosted != nil
+    }
+}
+
+private struct SelfHostedAnalyticsSignal: Encodable {
+    let eventTime: String
+    let eventName: String
+    let appVersion: String
+    let buildNumber: Int?
+    let installationID: String
+    let failureContext: String?
+    let failureStage: String?
+    let failureDisposition: String?
+    let schedulerReason: String?
+    let locationTaskConfiguration: String?
+    let locationTaskRegistration: String?
+
+    enum CodingKeys: String, CodingKey {
+        case eventTime = "event_time"
+        case eventName = "event_name"
+        case appVersion = "app_version"
+        case buildNumber = "build_number"
+        case installationID = "installation_id"
+        case failureContext = "failure_context"
+        case failureStage = "failure_stage"
+        case failureDisposition = "failure_disposition"
+        case schedulerReason = "scheduler_reason"
+        case locationTaskConfiguration = "location_task_configuration"
+        case locationTaskRegistration = "location_task_registration"
     }
 }
 

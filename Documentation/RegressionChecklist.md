@@ -45,6 +45,9 @@ Use this checklist before packaging an IPA or declaring a development build stab
 
 ## Fixed location on Wi-Fi
 
+- [ ] Before the first session attempt, copied diagnostics show location-task configuration `Not checked` and registration `Not attempted`.
+- [ ] After a session reaches task submission, copied diagnostics show a matched permitted identifier and whether iOS accepted or rejected registration.
+- [ ] Cancelling during connection cannot let an obsolete location-task callback start a replacement session.
 - [ ] With LocalDevVPN connected, Start Location becomes active without mobile-data guidance.
 - [ ] With LocalDevVPN disconnected, Roam Control opens it quickly and resumes automatically.
 - [ ] Selecting another place and tapping Update Location changes the active location without restarting the flow.
@@ -98,10 +101,15 @@ Use this checklist before packaging an IPA or declaring a development build stab
 - [ ] Replay Introduction does not delete app data.
 - [ ] Privacy shows the sharing toggle and the complete What Is Shared disclosure.
 - [ ] Disabling sharing takes effect immediately and remains disabled after relaunch.
+- [x] Existing telemetry test build: with sharing disabled, two relaunches produced no new self-hosted event (9 events, maximum ID 9 and unchanged latest timestamp before and after).
+- [x] Build 56 SideStore-installed release candidate: with sharing explicitly disabled, force-close and relaunch produced no new self-hosted event; after sharing was enabled, participation and activation events were accepted by the self-hosted backend.
+- [ ] Separately verify that no TelemetryDeck request is produced while sharing is disabled.
+- [ ] Disabling sharing while requests are in progress cancels them where possible and no later action sends until sharing is enabled again.
 - [ ] A failed first participation request is retried on the next activation.
 - [ ] An app activation is counted when the app returns from the background, without a duplicate cold-launch event.
 - [ ] A failed active-location update does not send an active-location-updated event.
-- [ ] A build without the private TelemetryDeck configuration sends no requests.
+- [ ] A build without any complete private analytics destination sends no requests.
+- [ ] A self-hosted-only build sends only to the self-hosted endpoint; a TelemetryDeck-only build sends only to TelemetryDeck; a fully configured build sends to both.
 - [ ] Usage events never contain coordinates, place names, searches, routes, pairing data or diagnostics.
 - [ ] The built app contains `PrivacyInfo.xcprivacy` with tracking disabled.
 - [ ] Reset Roam Control clears app data, returns to onboarding and does not alter LocalDevVPN.

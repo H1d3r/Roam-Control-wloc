@@ -75,14 +75,29 @@ final class AppModel {
         deviceSession.onFailure = { [weak self] stage in
             guard let self else { return }
             let restoring = self.isRestoringInterruptedSession || self.isStoppingLocationSessionForRestoration
-            self.usageAnalytics.recordFailure(stage, context: restoring ? .restoration : .location, enabled: self.sharesAnonymousUsageStatistics)
+            let includeTaskState = stage == .schedulerRegistration || stage == .schedulerSubmission
+            self.usageAnalytics.recordFailure(
+                stage,
+                context: restoring ? .restoration : .location,
+                taskConfigurationStatus: includeTaskState ? self.deviceSession.taskConfigurationStatus : nil,
+                taskRegistrationStatus: includeTaskState ? self.deviceSession.taskRegistrationStatus : nil,
+                enabled: self.sharesAnonymousUsageStatistics
+            )
         }
 
         deviceSession.onRecoveryNeeded = { [weak self] stage in
             guard let self else { return }
             let restoring = self.isRestoringInterruptedSession || self.isStoppingLocationSessionForRestoration
-            self.usageAnalytics.recordFailure(stage, context: restoring ? .restoration : .location,
-                                              disposition: .recoverable, schedulerReason: stage == .schedulerSubmission ? self.deviceSession.schedulerFailureReason : nil, enabled: self.sharesAnonymousUsageStatistics)
+            let includeTaskState = stage == .schedulerRegistration || stage == .schedulerSubmission
+            self.usageAnalytics.recordFailure(
+                stage,
+                context: restoring ? .restoration : .location,
+                disposition: .recoverable,
+                schedulerReason: stage == .schedulerSubmission ? self.deviceSession.schedulerFailureReason : nil,
+                taskConfigurationStatus: includeTaskState ? self.deviceSession.taskConfigurationStatus : nil,
+                taskRegistrationStatus: includeTaskState ? self.deviceSession.taskRegistrationStatus : nil,
+                enabled: self.sharesAnonymousUsageStatistics
+            )
         }
         deviceSession.onConnectionEvent = { [weak self] event in
             guard let self else { return }

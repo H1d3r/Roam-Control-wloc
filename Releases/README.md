@@ -1,5 +1,27 @@
 # Roam Control releases
 
+## 0.9.2 (Build 56 — Beta 5)
+
+- Created: 13 September 2026, 21:08 BST
+- Package: `RoamControl-0.9.2-build56.ipa`
+- Build: optimized unsigned Release for iPhone
+- Requires: iOS 27.0 or later
+- Xcode: 27.0 (`27A266a`)
+- Distribution: unsigned IPA for SideStore re-signing
+- Build timestamp: `2026-09-13T20:07:39Z`
+- SHA-256: `ede639ef010e8ba1b4763e112f1fb272d9a56fdbb2267c4d09a504c7fec7cc5a`
+- Validation: ZIP integrity, bundle identity and metadata checks passed. The final candidate was installed through SideStore and passed owner-device fixed-location, Stop & Restore and self-hosted telemetry consent-gating checks.
+- Scope: carries forward bounded location-task registration validation and lifecycle hardening, adds fixed configuration/registration diagnostics and consent-gated self-hosted telemetry. It does not establish that all iOS `schedulerRegistration` failures are fixed.
+- Packaging note: an earlier Build 56 package with a stale embedded build timestamp was rejected during validation and is not the release artifact. The SHA-256 above identifies the final candidate.
+
+
+## 0.9.2 (Build 54 — private diagnostic)
+
+- Distribution: private diagnostic build only; not published as a public release.
+- Scope: location continued-processing task registration validation and fixed copied-diagnostic fields only.
+- History: the Build 54 source changes were not committed and are not present in the retained Git history. Build 55 reconstructs the narrowly scoped validation rather than treating Build 54 as a source baseline.
+- Validation: external validation was limited. Build 54 does not establish that `schedulerRegistration` failures were fixed.
+
 ## 0.9.2 (Build 53)
 
 - Created: 12 September 2026
