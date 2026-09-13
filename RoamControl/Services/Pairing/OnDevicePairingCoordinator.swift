@@ -48,6 +48,8 @@ final class OnDevicePairingCoordinator {
 
     private(set) var lastFailureStage: FailureStage?
     private(set) var schedulerFailureReason: SchedulerFailureReason?
+    private(set) var taskConfigurationStatus: BackgroundTaskConfigurationStatus = .notChecked
+    private(set) var taskRegistrationStatus: BackgroundTaskRegistrationStatus = .notAttempted
 
     private var terminalFailureReported = false
     var onFailure: ((FailureStage) -> Void)?
@@ -97,12 +99,16 @@ final class OnDevicePairingCoordinator {
         terminalFailureReported = false
         lastFailureStage = nil
         schedulerFailureReason = nil
+        taskConfigurationStatus = .notChecked
+        taskRegistrationStatus = .notAttempted
         cancellationRequested = false
         pendingFailureMessage = nil
         recordStore = storeRecord
         phase = .preparing
 
         let identifier = "\(Self.taskIdentifierPrefix).\(UUID().uuidString)"
+        taskConfigurationStatus = BackgroundTaskIdentifier.configurationStatus(for: identifier)
+
         let wasRegistered = BGTaskScheduler.shared.register(
             forTaskWithIdentifier: identifier,
             using: .main
@@ -121,6 +127,8 @@ final class OnDevicePairingCoordinator {
                 Self.shared.beginPairing(with: task)
             }
         }
+
+        taskRegistrationStatus = wasRegistered ? .accepted : .rejected
 
         guard wasRegistered else {
             recordStore = nil

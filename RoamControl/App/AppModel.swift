@@ -70,7 +70,15 @@ final class AppModel {
 
         onDevicePairing.onFailure = { [weak self] stage in
             guard let self else { return }
-            self.usageAnalytics.recordFailure(stage, context: .pairing, schedulerReason: self.onDevicePairing.schedulerFailureReason, enabled: self.sharesAnonymousUsageStatistics)
+            let includeTaskState = stage == .schedulerRegistration || stage == .schedulerSubmission
+            self.usageAnalytics.recordFailure(
+                stage,
+                context: .pairing,
+                schedulerReason: self.onDevicePairing.schedulerFailureReason,
+                taskConfigurationStatus: includeTaskState ? self.onDevicePairing.taskConfigurationStatus : nil,
+                taskRegistrationStatus: includeTaskState ? self.onDevicePairing.taskRegistrationStatus : nil,
+                enabled: self.sharesAnonymousUsageStatistics
+            )
         }
         deviceSession.onFailure = { [weak self] stage in
             guard let self else { return }

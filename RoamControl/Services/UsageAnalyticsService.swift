@@ -242,18 +242,21 @@ final class UsageAnalyticsService {
     ) async -> Bool {
         guard let configuration else { return false }
 
+        let failureContext = failure?.1
         let payload = SelfHostedAnalyticsSignal(
             eventTime: ISO8601DateFormatter().string(from: .now),
             eventName: event.rawValue,
             appVersion: appVersion,
             buildNumber: Int(buildNumber),
             installationID: clientIdentifier,
-            failureContext: failure?.1.rawValue,
+            failureContext: failureContext?.rawValue,
             failureStage: failure?.0.rawValue,
             failureDisposition: failure?.2.rawValue,
             schedulerReason: failure?.3?.rawValue,
-            locationTaskConfiguration: failure?.4?.rawValue,
-            locationTaskRegistration: failure?.5?.rawValue
+            locationTaskConfiguration: failureContext == .location ? failure?.4?.rawValue : nil,
+            locationTaskRegistration: failureContext == .location ? failure?.5?.rawValue : nil,
+            pairingTaskConfiguration: failureContext == .pairing ? failure?.4?.rawValue : nil,
+            pairingTaskRegistration: failureContext == .pairing ? failure?.5?.rawValue : nil
         )
 
         guard let data = try? JSONEncoder().encode(payload) else { return false }
@@ -396,6 +399,8 @@ private struct SelfHostedAnalyticsSignal: Encodable {
     let schedulerReason: String?
     let locationTaskConfiguration: String?
     let locationTaskRegistration: String?
+    let pairingTaskConfiguration: String?
+    let pairingTaskRegistration: String?
 
     enum CodingKeys: String, CodingKey {
         case eventTime = "event_time"
@@ -409,6 +414,8 @@ private struct SelfHostedAnalyticsSignal: Encodable {
         case schedulerReason = "scheduler_reason"
         case locationTaskConfiguration = "location_task_configuration"
         case locationTaskRegistration = "location_task_registration"
+        case pairingTaskConfiguration = "pairing_task_configuration"
+        case pairingTaskRegistration = "pairing_task_registration"
     }
 }
 
