@@ -332,6 +332,11 @@ struct ConnectionHealthView: View {
         Session scheduler reason (this launch): \(appModel.deviceSession.schedulerFailureReason?.rawValue ?? "None")
         Location task configuration: \(appModel.deviceSession.taskConfigurationStatus.rawValue)
         Location task registration: \(appModel.deviceSession.taskRegistrationStatus.rawValue)
+        Location scheduler mode: Registration observation only (no task submitted)
+        Background keep-alive: coreLocation
+        Background keep-alive status: \(appModel.deviceSession.backgroundKeepAlive.status.rawValue)
+        Background keep-alive started: \(appModel.deviceSession.backgroundKeepAlive.started)
+        Location BG scheduler available: \(appModel.deviceSession.backgroundTelemetry.schedulerAvailable)
         Restoration: \(appModel.deviceSession.restorationStatus)
         Last connection check: \(checked)
         Connection check result: \(diagnosticResultStatus)

@@ -3,6 +3,8 @@ import Foundation
 import UIKit
 
 enum UsageAnalyticsEvent: String {
+    case backgroundKeepAliveChanged = "RoamControl.Background.KeepAliveChanged"
+    case backgroundSchedulerObserved = "RoamControl.Background.SchedulerObserved"
     case connectionHelpShown = "RoamControl.Connection.HelpShown"
     case connectionRetrySelected = "RoamControl.Connection.RetrySelected"
     case connectionRetrySucceeded = "RoamControl.Connection.RetrySucceeded"
@@ -35,6 +37,7 @@ final class UsageAnalyticsService {
 
     private let preferences: UserDefaults
     private let urlSession: URLSession
+    var backgroundSession: (() -> BackgroundSessionTelemetry)?
     private var reportingEnabled = false
     private var consentRevision = 0
     private var participationAttemptID: UUID?
@@ -136,7 +139,14 @@ final class UsageAnalyticsService {
         failure: (FailureDiagnosticSnapshot, FailureContext)? = nil,
         completion: (@MainActor (Bool) -> Void)? = nil
     ) {
+        let background = backgroundSession?()
         var payload = Self.safePayload
+        if let background {
+            payload["RoamControl.backgroundKeepAlive"] = "coreLocation"
+            payload["RoamControl.backgroundKeepAliveStatus"] = background.status.rawValue
+            payload["RoamControl.backgroundKeepAliveStarted"] = String(background.started)
+            payload["RoamControl.bgTaskSchedulerAvailable"] = String(background.schedulerAvailable)
+        }
         if let (diagnostic, context) = failure {
             let stage = diagnostic.stage
             let disposition = diagnostic.disposition
@@ -189,6 +199,7 @@ final class UsageAnalyticsService {
                 event,
                 clientIdentifier: clientIdentifier,
                 failure: failure,
+                background: background,
                 configuration: destinations.selfHosted,
                 session: session
             )
@@ -220,6 +231,7 @@ final class UsageAnalyticsService {
         _ event: UsageAnalyticsEvent,
         clientIdentifier: String,
         failure: (FailureDiagnosticSnapshot, FailureContext)?,
+        background: BackgroundSessionTelemetry?,
         configuration: SelfHostedAnalyticsConfiguration?,
         session: URLSession
     ) async -> Bool {
@@ -243,7 +255,11 @@ final class UsageAnalyticsService {
             locationTaskConfiguration: (failureContext == .location || failureContext == .restoration) ? diagnostic?.taskConfigurationStatus?.rawValue : nil,
             locationTaskRegistration: (failureContext == .location || failureContext == .restoration) ? diagnostic?.taskRegistrationStatus?.rawValue : nil,
             pairingTaskConfiguration: failureContext == .pairing ? diagnostic?.taskConfigurationStatus?.rawValue : nil,
-            pairingTaskRegistration: failureContext == .pairing ? diagnostic?.taskRegistrationStatus?.rawValue : nil
+            pairingTaskRegistration: failureContext == .pairing ? diagnostic?.taskRegistrationStatus?.rawValue : nil,
+            backgroundKeepAlive: background == nil ? nil : "coreLocation",
+            backgroundKeepAliveStatus: background?.status.rawValue,
+            backgroundKeepAliveStarted: background?.started,
+            bgTaskSchedulerAvailable: background?.schedulerAvailable
         )
 
         guard let data = try? JSONEncoder().encode(payload) else { return false }
@@ -391,6 +407,10 @@ private struct SelfHostedAnalyticsSignal: Encodable {
     let locationTaskRegistration: String?
     let pairingTaskConfiguration: String?
     let pairingTaskRegistration: String?
+    let backgroundKeepAlive: String?
+    let backgroundKeepAliveStatus: String?
+    let backgroundKeepAliveStarted: Bool?
+    let bgTaskSchedulerAvailable: Bool?
 
     enum CodingKeys: String, CodingKey {
         case eventTime = "event_time"
@@ -409,6 +429,10 @@ private struct SelfHostedAnalyticsSignal: Encodable {
         case locationTaskRegistration = "location_task_registration"
         case pairingTaskConfiguration = "pairing_task_configuration"
         case pairingTaskRegistration = "pairing_task_registration"
+        case backgroundKeepAlive = "background_keep_alive"
+        case backgroundKeepAliveStatus = "background_keep_alive_status"
+        case backgroundKeepAliveStarted = "background_keep_alive_started"
+        case bgTaskSchedulerAvailable = "bg_task_scheduler_available"
     }
 }
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check Build 59 release, scheduler and telemetry invariants without networking."""
+"""Check Build 60 release, scheduler and telemetry invariants without networking."""
 
 from pathlib import Path
 import plistlib
@@ -25,7 +25,7 @@ def function_body(source: str, signature: str) -> str:
 
 
 project = (ROOT / "RoamControl.xcodeproj/project.pbxproj").read_text()
-assert project.count("CURRENT_PROJECT_VERSION = 59;") == 2
+assert project.count("CURRENT_PROJECT_VERSION = 60;") == 2
 assert project.count("MARKETING_VERSION = 0.9.2;") == 2
 
 with (ROOT / "Configuration/RoamControl-Info.plist").open("rb") as stream:
@@ -88,11 +88,11 @@ assert "failureContext == .pairing ? diagnostic?.taskConfigurationStatus?.rawVal
 assert "failureContext == .pairing ? diagnostic?.taskRegistrationStatus?.rawValue : nil" in self_hosted_routing
 
 session = (ROOT / "RoamControl/Services/Tunnel/LocalDeviceSessionCoordinator.swift").read_text()
-submission = function_body(session, "private func submitLocationTask()")
+submission = function_body(session, "private func observeLocationScheduler()")
 assert "BackgroundTaskIdentifier.configurationStatus(for: \"location\")" in submission
 assert "guard taskConfigurationStatus == .permitted," in submission
-assert "self.submittedTaskIdentifier == identifier" in submission
-assert "!self.cancellationRequested" in submission
+assert "submitTaskRequest" not in session
+assert "runNativeLocationSession()" in function_body(session, "private func submitLocationTask()")
 
 pairing = (ROOT / "RoamControl/Services/Pairing/OnDevicePairingCoordinator.swift").read_text()
 assert "taskConfigurationStatus: BackgroundTaskConfigurationStatus = .notChecked" in pairing
@@ -128,4 +128,4 @@ if private_config.exists():
             if path.is_file():
                 assert token not in path.read_text(errors="ignore"), f"Private token tracked in {relative}"
 
-print("Build 59 release, scheduler and consent-gate source checks passed; no network requests made.")
+print("Build 60 release, scheduler and consent-gate source checks passed; no network requests made.")

@@ -33,6 +33,8 @@ enum RuntimeFixture {
 struct UIDevice { static let current = UIDevice(); let systemVersion = "27.0" }
 '''
 source = 'import Foundation\n' + fixture + helper
+keep_alive = (root / 'RoamControl/Services/BackgroundLocationKeepAlive.swift').read_text()
+source += keep_alive[keep_alive.index('struct BackgroundSessionTelemetry'):keep_alive.index('/// Receives')]
 source += analytics[analytics.index('enum UsageAnalyticsEvent:'):analytics.index('/// Sends')]
 source += analytics[analytics.index('struct FailureDiagnosticSnapshot'):]
 source += analytics[analytics.index('private struct SelfHostedAnalyticsSignal'):analytics.index('private struct AnalyticsConfiguration')]
@@ -47,7 +49,8 @@ final class Recorder {
     func send(_ event: UsageAnalyticsEvent, destinations: Destinations,
               failure: (FailureDiagnosticSnapshot, FailureContext)?) {
         let appVersion = "0.9.2"
-        let buildNumber = "59"
+        let buildNumber = "60"
+        let background: BackgroundSessionTelemetry? = BackgroundSessionTelemetry(status: .receivingUpdates, started: true, schedulerAvailable: false)
         let clientIdentifier = "anonymous-test"
 ''' + routing + '''
         rows.append(try! JSONSerialization.jsonObject(with: JSONEncoder().encode(payload)) as! [String: Any])
@@ -61,6 +64,7 @@ for component, file in [('pairing','Pairing/OnDevicePairingCoordinator.swift'), 
     source += f'final class {component.title()}Harness {{\n'
     source += block(code, '    private(set) var phase:') + '\n'
     source += '''
+    var schedulerRegistrationAccepted = false
     var terminalFailureReported = false
     var lastFailureStage: FailureStage?
     var lastFailureDisposition: FailureDisposition?
@@ -68,35 +72,48 @@ for component, file in [('pairing','Pairing/OnDevicePairingCoordinator.swift'), 
     var taskConfigurationStatus: BackgroundTaskConfigurationStatus = .notChecked
     var taskRegistrationStatus: BackgroundTaskRegistrationStatus = .notAttempted
     var recordStore: Int? = 1
+    var onRecoveryNeeded: ((FailureDiagnosticSnapshot) -> Void)?
     var onFailure: ((FailureDiagnosticSnapshot) -> Void)?
+    var backgroundTelemetry = BackgroundSessionTelemetry(status: .idle, started: false, schedulerAvailable: false)
+    var onBackgroundEvent: ((UsageAnalyticsEvent, BackgroundSessionTelemetry) -> Void)?
 ''' + f'    var onPhaseChange: (({phase}) -> Void)?\n'
     source += block(code, '    private func failureSnapshot(') + '\n'
+    if component == 'location':
+        source += block(code, '    private func reportSchedulerObservationFailure()') + '\n'
     start = code.index(f'        taskConfigurationStatus = BackgroundTaskIdentifier.configurationStatus(for: "{component}")')
     end = code.index('        let identifier =', start)
     source += '    func preflight() {\n        phase = .preparing\n        terminalFailureReported = false\n' + code[start:end] + '\n        _ = prefix\n    }\n'
     source += '    func fail(_ message: String) { phase = .failed(message) }\n}\n'
+    expected_count = 1 if component == 'pairing' else 2
+    expected_event = 'RoamControl.Failure.Observed' if component == 'pairing' else 'RoamControl.Connection.RecoveryNeeded'
+    expected_disposition = 'terminal' if component == 'pairing' else 'recoverable'
+    callback = 'onFailure' if component == 'pairing' else 'onRecoveryNeeded'
     source += f'''
 do {{
     let coordinator = {component.title()}Harness()
     let recorder = Recorder()
     var captured: FailureDiagnosticSnapshot?
-    coordinator.onFailure = {{ snapshot in
+    coordinator.{callback} = {{ snapshot in
         captured = snapshot
         recorder.recordFailure(snapshot, context: .{component}, enabled: true)
     }}
     coordinator.preflight()
-    precondition(recorder.rows.count == 1)
+    precondition(recorder.rows.count == {expected_count})
     let row = recorder.rows[0]
-    precondition(row["event_name"] as? String == "RoamControl.Failure.Observed")
+    precondition(row["event_name"] as? String == "{expected_event}")
     precondition(row["failure_context"] as? String == "{component}")
     precondition(row["failure_stage"] as? String == "schedulerRegistration")
-    precondition(row["failure_disposition"] as? String == "terminal")
+    precondition(row["failure_disposition"] as? String == "{expected_disposition}")
     precondition(row["{component}_task_configuration"] as? String == "Runtime identifier wildcard not permitted")
     precondition(row["{component}_task_registration"] as? String == "Not attempted")
     precondition(row["runtime_bundle_identifier"] as? String == RuntimeFixture.bundleIdentifier)
     precondition(row["permitted_background_tasks"] as? [String] == RuntimeFixture.object(forInfoDictionaryKey: "") as? [String])
     precondition(row["ios_version"] as? String == "27.0")
     precondition(row["scheduler_reason"] == nil)
+    precondition(row["background_keep_alive"] as? String == "coreLocation")
+    precondition(row["background_keep_alive_status"] as? String == "receivingUpdates")
+    precondition(row["background_keep_alive_started"] as? Bool == true)
+    precondition(row["bg_task_scheduler_available"] as? Bool == false)
     coordinator.taskConfigurationStatus = .permitted
     coordinator.taskRegistrationStatus = .accepted
     precondition(captured?.taskConfigurationStatus == .runtimeIdentifierNotPermitted)

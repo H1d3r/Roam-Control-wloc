@@ -95,6 +95,15 @@ final class AppModel {
                 enabled: self.sharesAnonymousUsageStatistics
             )
         }
+        usageAnalytics.backgroundSession = { [weak self] in
+            self?.deviceSession.backgroundTelemetry ?? BackgroundSessionTelemetry(
+                status: .idle, started: false, schedulerAvailable: false
+            )
+        }
+        deviceSession.onBackgroundEvent = { [weak self] event, _ in
+            guard let self else { return }
+            self.usageAnalytics.record(event, enabled: self.sharesAnonymousUsageStatistics)
+        }
         deviceSession.onConnectionEvent = { [weak self] event in
             guard let self else { return }
             self.usageAnalytics.record(event, enabled: self.sharesAnonymousUsageStatistics)

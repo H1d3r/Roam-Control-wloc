@@ -22,7 +22,7 @@ checks = [
  'precondition(FailureDisposition.recoverable.event == .connectionRecoveryNeeded)',
 ]
 coordinator = (root / 'RoamControl/Services/Tunnel/LocalDeviceSessionCoordinator.swift').read_text()
-assert 'self.onRecoveryNeeded?(self.failureSnapshot(stage: .schedulerSubmission, disposition: .recoverable))' in coordinator
+assert 'onRecoveryNeeded?(failureSnapshot(stage: .schedulerRegistration, disposition: .recoverable))' in coordinator
 assert 'onRecoveryNeeded?(failureSnapshot(stage: stage, disposition: .recoverable))' in coordinator
 assert 'onFailure?(failureSnapshot(stage: stage))' in coordinator
 assert 'self.onFailure?(.schedulerSubmission)' not in coordinator

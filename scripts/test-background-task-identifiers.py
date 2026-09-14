@@ -48,7 +48,10 @@ for component, file in [('pairing', 'Pairing/OnDevicePairingCoordinator.swift'),
     assert check < guard < registration
     assert 'return' in source[guard:registration]
     assert f'let prefix = BackgroundTaskIdentifier.prefix(for: "{component}")' in source[guard:registration]
-    assert 'request.strategy = .fail' in source
+    if component == 'pairing':
+        assert 'request.strategy = .fail' in source
+    else:
+        assert 'submitTaskRequest' not in source
 info = plistlib.loads((root / 'Configuration/RoamControl-Info.plist').read_bytes())
 assert info['BGTaskSchedulerPermittedIdentifiers'] == ['$(PRODUCT_BUNDLE_IDENTIFIER).pairing.*', '$(PRODUCT_BUNDLE_IDENTIFIER).location.*']
 print('Pairing/location pre-registration and plist invariants passed')

@@ -66,6 +66,15 @@ final class LocalDeviceSessionCoordinator: NSObject {
             }
         }
     }
+    let backgroundKeepAlive = BackgroundLocationKeepAlive()
+    var onBackgroundEvent: ((UsageAnalyticsEvent, BackgroundSessionTelemetry) -> Void)?
+    var backgroundTelemetry: BackgroundSessionTelemetry {
+        BackgroundSessionTelemetry(
+            status: backgroundKeepAlive.status,
+            started: backgroundKeepAlive.started,
+            schedulerAvailable: taskRegistrationStatus == .accepted
+        )
+    }
     var onConnectionEvent: ((UsageAnalyticsEvent) -> Void)?
     private var retryTelemetry = ConnectionRetryTelemetry()
     private var vpnReturnRetryUsed = false
@@ -129,10 +138,7 @@ final class LocalDeviceSessionCoordinator: NSObject {
 
     private var activeSession: OpaquePointer?
     private var activeRunIdentifier: UUID?
-    private var submittedTaskIdentifier: String?
-    private var backgroundTask: BGContinuedProcessingTask?
-    private var backgroundProgressTask: Task<Void, Never>?
-    private var backgroundTaskFinished = true
+    private var schedulerRegistrationAccepted = false
     private var workerIsRunning = false
     private var cancellationRequested = false
     private var pendingFailureMessage: String?
@@ -140,6 +146,10 @@ final class LocalDeviceSessionCoordinator: NSObject {
 
     override init() {
         super.init()
+        backgroundKeepAlive.onChange = { [weak self] in
+            guard let self else { return }
+            self.onBackgroundEvent?(.backgroundKeepAliveChanged, self.backgroundTelemetry)
+        }
         browser.delegate = self
         browser.includesPeerToPeer = true
         wifiPathMonitor.pathUpdateHandler = { [weak self] path in
@@ -223,10 +233,6 @@ final class LocalDeviceSessionCoordinator: NSObject {
             target: target
         )
         phase = .active(target)
-        backgroundTask?.updateTitle(
-            "Roam Control",
-            subtitle: "Location active at \(target.name)"
-        )
         return .updated
     }
 
@@ -309,6 +315,7 @@ final class LocalDeviceSessionCoordinator: NSObject {
     }
 
     func stop() {
+        backgroundKeepAlive.stop()
         mobileDataGuidance = nil
         switch phase {
         case .idle:
@@ -323,20 +330,12 @@ final class LocalDeviceSessionCoordinator: NSObject {
             phase = .stopping
             if let activeSession {
                 rc_location_session_cancel(activeSession)
-            } else if let submittedTaskIdentifier {
-                BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: submittedTaskIdentifier)
-                clearPendingSession()
-                phase = .idle
             }
         case .active:
             cancellationRequested = true
             restorationStatus = "Stop requested; awaiting device response"
             restorationDisplayStartDate = .now
             phase = .stopping
-            backgroundTask?.updateTitle(
-                "Roam Control",
-                subtitle: "Restoring real location…"
-            )
             if let activeSession {
                 rc_location_session_cancel(activeSession)
             }
@@ -506,129 +505,47 @@ final class LocalDeviceSessionCoordinator: NSObject {
     }
 
     private func submitLocationTask() {
-        guard let pendingSession, resolvedService != nil else {
+        guard pendingSession != nil, resolvedService != nil else {
             fail("Roam Control could not prepare the selected location.")
             return
         }
-
         phase = .connecting
-        taskConfigurationStatus = BackgroundTaskIdentifier.configurationStatus(for: "location")
-        taskRegistrationStatus = .notAttempted
-
-        guard taskConfigurationStatus == .permitted,
-              let prefix = BackgroundTaskIdentifier.prefix(for: "location") else {
-            fail("iOS could not prepare the location session. Close Roam Control, reopen it, and try again.")
-            return
-        }
-
-        let identifier = "\(prefix).\(UUID().uuidString)"
-
-        let wasRegistered = BGTaskScheduler.shared.register(
-            forTaskWithIdentifier: identifier,
-            using: .main
-        ) { [weak self] task in
-            guard let task = task as? BGContinuedProcessingTask else {
-                task.setTaskCompleted(success: false)
-                return
-            }
-
-            MainActor.assumeIsolated {
-                guard let self else {
-                    task.setTaskCompleted(success: false)
-                    return
-                }
-                guard self.submittedTaskIdentifier == identifier,
-                      self.phase == .connecting,
-                      !self.cancellationRequested else {
-                    task.setTaskCompleted(success: false)
-                    return
-                }
-                self.beginLocationSession(with: task)
-            }
-        }
-
-        taskRegistrationStatus = wasRegistered ? .accepted : .rejected
-        guard wasRegistered else {
-            fail("iOS could not prepare the location session. Close Roam Control, reopen it, and try again.")
-            return
-        }
-
-        submittedTaskIdentifier = identifier
-        let request = BGContinuedProcessingTaskRequest(
-            identifier: identifier,
-            title: "Roam Control",
-            subtitle: "Connecting to \(pendingSession.target.name)…"
-        )
-        request.strategy = .fail
-
-        Task {
-            guard submittedTaskIdentifier == identifier,
-                  phase == .connecting,
-                  !cancellationRequested else { return }
-            do {
-                try await BGTaskScheduler.shared.submitTaskRequest(request)
-                if submittedTaskIdentifier != identifier || cancellationRequested {
-                    BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: identifier)
-                }
-            } catch {
-                BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: identifier)
-                guard self.submittedTaskIdentifier == identifier, self.phase == .connecting else { return }
-                self.schedulerFailureReason = SchedulerFailureReason.classify(error)
-                self.lastFailureStage = .schedulerSubmission
-                self.lastFailureDisposition = .recoverable
-                self.onRecoveryNeeded?(self.failureSnapshot(stage: .schedulerSubmission, disposition: .recoverable))
-                self.submittedTaskIdentifier = nil
-                self.resolvedService = nil
-                if self.isMobileDataStartupMode {
-                    self.enterMobileDataGuidance()
-                } else if self.hasRequestedLocalDevVPNThisAttempt {
-                    self.phase = .discovering
-                    self.showConnectionHelp()
-                } else {
-                    self.openLocalDevVPNForPendingSession()
-                }
-            }
-        }
-    }
-
-    private func beginLocationSession(with task: BGContinuedProcessingTask) {
-        guard phase == .connecting, !workerIsRunning else {
-            task.setTaskCompleted(success: false)
-            return
-        }
-
-        backgroundTask = task
-        backgroundTaskFinished = false
-        task.progress.totalUnitCount = 5_760
-        task.progress.completedUnitCount = 1
-        task.expirationHandler = { [weak self] in
-            Task { @MainActor in
-                self?.locationTaskExpired()
-            }
-        }
-        startBackgroundProgress(for: task)
-
+        observeLocationScheduler()
+        // Scheduler observation never owns, delays or cancels the native worker.
         runNativeLocationSession()
     }
 
-    private func startBackgroundProgress(for task: BGContinuedProcessingTask) {
-        backgroundProgressTask?.cancel()
-        backgroundProgressTask = Task { @MainActor [weak self] in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(15))
-                guard
-                    !Task.isCancelled,
-                    let self,
-                    self.backgroundTask === task,
-                    !self.backgroundTaskFinished
-                else { return }
-
-                task.progress.completedUnitCount = min(
-                    task.progress.completedUnitCount + 1,
-                    task.progress.totalUnitCount - 1
-                )
-            }
+    private func observeLocationScheduler() {
+        taskConfigurationStatus = BackgroundTaskIdentifier.configurationStatus(for: "location")
+        taskRegistrationStatus = .notAttempted
+        defer { onBackgroundEvent?(.backgroundSchedulerObserved, backgroundTelemetry) }
+        guard taskConfigurationStatus == .permitted,
+              let prefix = BackgroundTaskIdentifier.prefix(for: "location") else {
+            reportSchedulerObservationFailure()
+            return
         }
+        // Keep one successful registration per process; repeated sessions must not
+        // accumulate handlers or register the same identifier twice.
+        if schedulerRegistrationAccepted {
+            taskRegistrationStatus = .accepted
+            return
+        }
+        let identifier = "\(prefix).\(UUID().uuidString)"
+        let wasRegistered = BGTaskScheduler.shared.register(
+            forTaskWithIdentifier: identifier, using: .main
+        ) { task in
+            task.setTaskCompleted(success: true)
+        }
+        taskRegistrationStatus = wasRegistered ? .accepted : .rejected
+        // No request is submitted: this build measures registration availability only.
+        schedulerRegistrationAccepted = wasRegistered
+        if !wasRegistered { reportSchedulerObservationFailure() }
+    }
+
+    private func reportSchedulerObservationFailure() {
+        lastFailureStage = .schedulerRegistration
+        lastFailureDisposition = .recoverable
+        onRecoveryNeeded?(failureSnapshot(stage: .schedulerRegistration, disposition: .recoverable))
     }
 
     private func runNativeLocationSession() {
@@ -705,6 +622,7 @@ final class LocalDeviceSessionCoordinator: NSObject {
         guard workerIsRunning, !cancellationRequested, let target = pendingSession?.target else { return }
         mobileDataDiscoveryLoopTask?.cancel()
         mobileDataDiscoveryLoopTask = nil
+        backgroundKeepAlive.start()
         phase = .active(target)
         if let event = retryTelemetry.becameActive() {
             onConnectionEvent?(event)
@@ -712,10 +630,6 @@ final class LocalDeviceSessionCoordinator: NSObject {
         if mobileDataGuidance == .turnOff {
             mobileDataGuidance = .turnBackOn
         }
-        backgroundTask?.updateTitle(
-            "Roam Control",
-            subtitle: "Location active at \(target.name)"
-        )
     }
 
     private func nativeLocationFinished(
@@ -724,6 +638,7 @@ final class LocalDeviceSessionCoordinator: NSObject {
     ) {
         guard activeRunIdentifier == runIdentifier else { return }
 
+        backgroundKeepAlive.stop()
         activeRunIdentifier = nil
         activeSession = nil
         workerIsRunning = false
@@ -733,7 +648,6 @@ final class LocalDeviceSessionCoordinator: NSObject {
             mobileDataGuidance = nil
             clearPendingSession()
             phase = .failed(pendingFailureMessage)
-            finishBackgroundTask(success: false)
             return
         }
 
@@ -744,7 +658,6 @@ final class LocalDeviceSessionCoordinator: NSObject {
                 restorationStatus = "Stop not confirmed; real location unverified"
                 clearPendingSession()
                 phase = .failed(message)
-                finishBackgroundTask(success: false)
                 return
             }
             if restorationDisplayStartDate != nil {
@@ -760,7 +673,6 @@ final class LocalDeviceSessionCoordinator: NSObject {
             mobileDataGuidance = nil
             clearPendingSession()
             phase = .idle
-            finishBackgroundTask(success: true)
         case .failure(let message):
             if isRecoverableTunnelConnectionFailure(message) {
                 let stage = FailureStage.classify(message, fallback: .locationUnknown)
@@ -768,7 +680,6 @@ final class LocalDeviceSessionCoordinator: NSObject {
                 lastFailureDisposition = .recoverable
                 onRecoveryNeeded?(failureSnapshot(stage: stage, disposition: .recoverable))
                 resolvedService = nil
-                finishBackgroundTask(success: false)
                 if isMobileDataStartupMode {
                     enterMobileDataGuidance()
                 } else if hasRequestedLocalDevVPNThisAttempt {
@@ -783,31 +694,11 @@ final class LocalDeviceSessionCoordinator: NSObject {
             mobileDataGuidance = nil
             clearPendingSession()
             phase = .failed(message)
-            finishBackgroundTask(success: false)
         }
-    }
-
-    private func locationTaskExpired() {
-        if case .active = phase {
-            restorationDisplayStartDate = .now
-            restorationStatus = "Stop requested; awaiting device response"
-        }
-        cancellationRequested = true
-        pendingFailureMessage = nil
-        mobileDataGuidance = nil
-        phase = .stopping
-
-        if let activeSession {
-            rc_location_session_cancel(activeSession)
-        } else {
-            clearPendingSession()
-            phase = .idle
-        }
-
-        finishBackgroundTask(success: false)
     }
 
     private func fail(_ message: String) {
+        backgroundKeepAlive.stop()
         localDevVPNReturnTimeout?.cancel()
         localDevVPNReturnTimeout = nil
         mobileDataGuidance = nil
@@ -821,7 +712,6 @@ final class LocalDeviceSessionCoordinator: NSObject {
         }
 
         phase = .failed(message)
-        finishBackgroundTask(success: false)
     }
 
     private func cleanupDiscovery() {
@@ -961,6 +851,7 @@ final class LocalDeviceSessionCoordinator: NSObject {
     }
 
     private func clearPendingSession() {
+        backgroundKeepAlive.stop()
         retryTelemetry.reset()
         automaticDiscoveryTask?.cancel()
         automaticDiscoveryTask = nil
@@ -973,19 +864,8 @@ final class LocalDeviceSessionCoordinator: NSObject {
         cleanupDiscovery()
         pendingSession = nil
         resolvedService = nil
-        submittedTaskIdentifier = nil
         hasRequestedLocalDevVPNThisAttempt = false
         isMobileDataStartupMode = false
-    }
-
-    private func finishBackgroundTask(success: Bool) {
-        guard !backgroundTaskFinished else { return }
-        backgroundTaskFinished = true
-        backgroundProgressTask?.cancel()
-        backgroundProgressTask = nil
-        backgroundTask?.setTaskCompleted(success: success)
-        backgroundTask = nil
-        submittedTaskIdentifier = nil
     }
 
     private func finishCancelledLocationSession() {
@@ -995,7 +875,6 @@ final class LocalDeviceSessionCoordinator: NSObject {
 
         guard remaining > 0 else {
             phase = .idle
-            finishBackgroundTask(success: true)
             return
         }
 
@@ -1003,7 +882,6 @@ final class LocalDeviceSessionCoordinator: NSObject {
             try? await Task.sleep(for: .seconds(remaining))
             guard let self, !self.workerIsRunning, self.phase == .stopping else { return }
             self.phase = .idle
-            self.finishBackgroundTask(success: true)
         }
     }
 
