@@ -6,8 +6,6 @@
 	<array>
 		<string>$(PRODUCT_BUNDLE_IDENTIFIER).pairing.*</string>
 		<string>$(PRODUCT_BUNDLE_IDENTIFIER).location.*</string>
-		<string>$(PRODUCT_BUNDLE_IDENTIFIER).$(DEVELOPMENT_TEAM).pairing.*</string>
-		<string>$(PRODUCT_BUNDLE_IDENTIFIER).$(DEVELOPMENT_TEAM).location.*</string>
 	</array>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>

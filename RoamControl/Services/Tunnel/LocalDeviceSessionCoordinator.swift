@@ -41,10 +41,6 @@ final class LocalDeviceSessionCoordinator: NSObject {
         let authTag: String
     }
 
-    private static var taskIdentifierPrefix: String {
-        BackgroundTaskIdentifier.prefix(for: "location")
-    }
-
     private static let localDevVPNPeerAddress = "10.7.0.1"
     private static let enableURL = URL(string: "localdevvpn://enable?scheme=roamcontrol")!
     private static let minimumRestorationDisplayDuration: TimeInterval = 1.2
@@ -503,14 +499,16 @@ final class LocalDeviceSessionCoordinator: NSObject {
         }
 
         phase = .connecting
-        let identifier = "\(Self.taskIdentifierPrefix).\(UUID().uuidString)"
-        taskConfigurationStatus = BackgroundTaskIdentifier.configurationStatus(for: identifier)
+        taskConfigurationStatus = BackgroundTaskIdentifier.configurationStatus(for: "location")
         taskRegistrationStatus = .notAttempted
 
-        guard taskConfigurationStatus == .permitted else {
+        guard taskConfigurationStatus == .permitted,
+              let prefix = BackgroundTaskIdentifier.prefix(for: "location") else {
             fail("iOS could not prepare the location session. Close Roam Control, reopen it, and try again.")
             return
         }
+
+        let identifier = "\(prefix).\(UUID().uuidString)"
 
         let wasRegistered = BGTaskScheduler.shared.register(
             forTaskWithIdentifier: identifier,

@@ -27,10 +27,6 @@ final class OnDevicePairingCoordinator {
 
     static let shared = OnDevicePairingCoordinator()
 
-    private static var taskIdentifierPrefix: String {
-        BackgroundTaskIdentifier.prefix(for: "pairing")
-    }
-
     private(set) var phase: OnDevicePairingPhase = .idle {
         didSet {
             guard phase != oldValue else { return }
@@ -106,8 +102,17 @@ final class OnDevicePairingCoordinator {
         recordStore = storeRecord
         phase = .preparing
 
-        let identifier = "\(Self.taskIdentifierPrefix).\(UUID().uuidString)"
-        taskConfigurationStatus = BackgroundTaskIdentifier.configurationStatus(for: identifier)
+        taskConfigurationStatus = BackgroundTaskIdentifier.configurationStatus(for: "pairing")
+
+        guard taskConfigurationStatus == .permitted,
+              let prefix = BackgroundTaskIdentifier.prefix(for: "pairing") else {
+            recordStore = nil
+            phase = .failed(
+                "iOS could not register the secure pairing task. Close Roam Control, reopen it, and try again."
+            )
+            return
+        }
+        let identifier = "\(prefix).\(UUID().uuidString)"
 
         let wasRegistered = BGTaskScheduler.shared.register(
             forTaskWithIdentifier: identifier,

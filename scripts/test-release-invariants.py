@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check Build 57 release, scheduler and telemetry invariants without networking."""
+"""Check Build 58 release, scheduler and telemetry invariants without networking."""
 
 from pathlib import Path
 import plistlib
@@ -25,7 +25,7 @@ def function_body(source: str, signature: str) -> str:
 
 
 project = (ROOT / "RoamControl.xcodeproj/project.pbxproj").read_text()
-assert project.count("CURRENT_PROJECT_VERSION = 57;") == 2
+assert project.count("CURRENT_PROJECT_VERSION = 58;") == 2
 assert project.count("MARKETING_VERSION = 0.9.2;") == 2
 
 with (ROOT / "Configuration/RoamControl-Info.plist").open("rb") as stream:
@@ -89,15 +89,15 @@ assert "failureContext == .pairing ? failure?.5?.rawValue : nil" in self_hosted_
 
 session = (ROOT / "RoamControl/Services/Tunnel/LocalDeviceSessionCoordinator.swift").read_text()
 submission = function_body(session, "private func submitLocationTask()")
-assert "BackgroundTaskIdentifier.configurationStatus(for: identifier)" in submission
-assert "guard taskConfigurationStatus == .permitted else" in submission
+assert "BackgroundTaskIdentifier.configurationStatus(for: \"location\")" in submission
+assert "guard taskConfigurationStatus == .permitted," in submission
 assert "self.submittedTaskIdentifier == identifier" in submission
 assert "!self.cancellationRequested" in submission
 
 pairing = (ROOT / "RoamControl/Services/Pairing/OnDevicePairingCoordinator.swift").read_text()
 assert "taskConfigurationStatus: BackgroundTaskConfigurationStatus = .notChecked" in pairing
 assert "taskRegistrationStatus: BackgroundTaskRegistrationStatus = .notAttempted" in pairing
-assert "taskConfigurationStatus = BackgroundTaskIdentifier.configurationStatus(for: identifier)" in pairing
+assert "taskConfigurationStatus = BackgroundTaskIdentifier.configurationStatus(for: \"pairing\")" in pairing
 assert "taskRegistrationStatus = wasRegistered ? .accepted : .rejected" in pairing
 
 app_model = (ROOT / "RoamControl/App/AppModel.swift").read_text()
@@ -128,4 +128,4 @@ if private_config.exists():
             if path.is_file():
                 assert token not in path.read_text(errors="ignore"), f"Private token tracked in {relative}"
 
-print("Build 57 release, scheduler and consent-gate source checks passed; no network requests made.")
+print("Build 58 release, scheduler and consent-gate source checks passed; no network requests made.")
