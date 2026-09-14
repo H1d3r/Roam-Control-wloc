@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import UIKit
 
 enum UsageAnalyticsEvent: String {
     case connectionHelpShown = "RoamControl.Connection.HelpShown"
@@ -87,29 +88,22 @@ final class UsageAnalyticsService {
     }
 
     func recordFailure(
-        _ stage: FailureStage,
+        _ diagnostic: FailureDiagnosticSnapshot,
         context: FailureContext,
-        disposition: FailureDisposition = .terminal,
-        schedulerReason: SchedulerFailureReason? = nil,
-        taskConfigurationStatus: BackgroundTaskConfigurationStatus? = nil,
-        taskRegistrationStatus: BackgroundTaskRegistrationStatus? = nil,
         enabled: Bool
     ) {
         let destinations = Self.destinations
         guard enabled, destinations.hasConfiguredDestination else { return }
         reportingEnabled = true
-        send(
-            disposition.event,
-            destinations: destinations,
-            failure: (
-                stage,
-                context,
-                disposition,
-                schedulerReason,
-                taskConfigurationStatus,
-                taskRegistrationStatus
-            )
-        )
+        send(diagnostic.disposition.event, destinations: destinations, failure: (diagnostic, context))
+        // Preserve the recovery activity event and emit its scheduler diagnostic companion.
+        if diagnostic.disposition == .recoverable && diagnostic.isSchedulerFailure {
+            send(.failureObserved, destinations: destinations, failure: (diagnostic, context))
+        }
+    }
+
+    func recordFailure(_ stage: FailureStage, context: FailureContext, enabled: Bool) {
+        recordFailure(FailureDiagnosticSnapshot(stage: stage), context: context, enabled: enabled)
     }
 
     private func reportParticipationIfNeeded(
@@ -139,18 +133,14 @@ final class UsageAnalyticsService {
     private func send(
         _ event: UsageAnalyticsEvent,
         destinations: AnalyticsDestinations,
-        failure: (
-            FailureStage,
-            FailureContext,
-            FailureDisposition,
-            SchedulerFailureReason?,
-            BackgroundTaskConfigurationStatus?,
-            BackgroundTaskRegistrationStatus?
-        )? = nil,
+        failure: (FailureDiagnosticSnapshot, FailureContext)? = nil,
         completion: (@MainActor (Bool) -> Void)? = nil
     ) {
         var payload = Self.safePayload
-        if let (stage, context, disposition, schedulerReason, _, _) = failure {
+        if let (diagnostic, context) = failure {
+            let stage = diagnostic.stage
+            let disposition = diagnostic.disposition
+            let schedulerReason = diagnostic.schedulerReason
             if let schedulerReason {
                 payload["RoamControl.schedulerReason"] = schedulerReason.rawValue
             }
@@ -229,34 +219,31 @@ final class UsageAnalyticsService {
     private static func sendSelfHostedEvent(
         _ event: UsageAnalyticsEvent,
         clientIdentifier: String,
-        failure: (
-            FailureStage,
-            FailureContext,
-            FailureDisposition,
-            SchedulerFailureReason?,
-            BackgroundTaskConfigurationStatus?,
-            BackgroundTaskRegistrationStatus?
-        )?,
+        failure: (FailureDiagnosticSnapshot, FailureContext)?,
         configuration: SelfHostedAnalyticsConfiguration?,
         session: URLSession
     ) async -> Bool {
         guard let configuration else { return false }
 
+        let diagnostic = failure?.0
         let failureContext = failure?.1
         let payload = SelfHostedAnalyticsSignal(
             eventTime: ISO8601DateFormatter().string(from: .now),
             eventName: event.rawValue,
             appVersion: appVersion,
             buildNumber: Int(buildNumber),
+            iosVersion: UIDevice.current.systemVersion,
+            runtimeBundleIdentifier: diagnostic?.runtimeBundleIdentifier,
+            permittedBackgroundTasks: diagnostic?.permittedBackgroundTasks,
             installationID: clientIdentifier,
             failureContext: failureContext?.rawValue,
-            failureStage: failure?.0.rawValue,
-            failureDisposition: failure?.2.rawValue,
-            schedulerReason: failure?.3?.rawValue,
-            locationTaskConfiguration: failureContext == .location ? failure?.4?.rawValue : nil,
-            locationTaskRegistration: failureContext == .location ? failure?.5?.rawValue : nil,
-            pairingTaskConfiguration: failureContext == .pairing ? failure?.4?.rawValue : nil,
-            pairingTaskRegistration: failureContext == .pairing ? failure?.5?.rawValue : nil
+            failureStage: diagnostic?.stage.rawValue,
+            failureDisposition: diagnostic?.disposition.rawValue,
+            schedulerReason: diagnostic?.schedulerReason?.rawValue,
+            locationTaskConfiguration: (failureContext == .location || failureContext == .restoration) ? diagnostic?.taskConfigurationStatus?.rawValue : nil,
+            locationTaskRegistration: (failureContext == .location || failureContext == .restoration) ? diagnostic?.taskRegistrationStatus?.rawValue : nil,
+            pairingTaskConfiguration: failureContext == .pairing ? diagnostic?.taskConfigurationStatus?.rawValue : nil,
+            pairingTaskRegistration: failureContext == .pairing ? diagnostic?.taskRegistrationStatus?.rawValue : nil
         )
 
         guard let data = try? JSONEncoder().encode(payload) else { return false }
@@ -392,6 +379,9 @@ private struct SelfHostedAnalyticsSignal: Encodable {
     let eventName: String
     let appVersion: String
     let buildNumber: Int?
+    let iosVersion: String
+    let runtimeBundleIdentifier: String?
+    let permittedBackgroundTasks: [String]?
     let installationID: String
     let failureContext: String?
     let failureStage: String?
@@ -407,6 +397,9 @@ private struct SelfHostedAnalyticsSignal: Encodable {
         case eventName = "event_name"
         case appVersion = "app_version"
         case buildNumber = "build_number"
+        case iosVersion = "ios_version"
+        case runtimeBundleIdentifier = "runtime_bundle_identifier"
+        case permittedBackgroundTasks = "permitted_background_tasks"
         case installationID = "installation_id"
         case failureContext = "failure_context"
         case failureStage = "failure_stage"
@@ -432,7 +425,43 @@ private struct AnalyticsSignal: Encodable {
     let payload: [String: String]
 }
 
-// Values are fixed categories. Error text is compared locally and is never transmitted.
+// Captured before callbacks or cleanup can change coordinator state.
+// Only scheduler failures retain the bundle/plist environment; never error text.
+struct FailureDiagnosticSnapshot {
+    let stage: FailureStage
+    let disposition: FailureDisposition
+    let schedulerReason: SchedulerFailureReason?
+    let taskConfigurationStatus: BackgroundTaskConfigurationStatus?
+    let taskRegistrationStatus: BackgroundTaskRegistrationStatus?
+    let runtimeBundleIdentifier: String?
+    let permittedBackgroundTasks: [String]?
+
+    var isSchedulerFailure: Bool {
+        stage == .schedulerRegistration || stage == .schedulerSubmission
+    }
+
+    init(
+        stage: FailureStage,
+        disposition: FailureDisposition = .terminal,
+        schedulerReason: SchedulerFailureReason? = nil,
+        taskConfigurationStatus: BackgroundTaskConfigurationStatus? = nil,
+        taskRegistrationStatus: BackgroundTaskRegistrationStatus? = nil,
+        runtimeBundleIdentifier: String? = Bundle.main.bundleIdentifier,
+        permittedBackgroundTasks: [String]? = Bundle.main.object(
+            forInfoDictionaryKey: "BGTaskSchedulerPermittedIdentifiers"
+        ) as? [String]
+    ) {
+        self.stage = stage
+        self.disposition = disposition
+        let scheduler = stage == .schedulerRegistration || stage == .schedulerSubmission
+        self.schedulerReason = scheduler ? schedulerReason : nil
+        self.taskConfigurationStatus = scheduler ? taskConfigurationStatus : nil
+        self.taskRegistrationStatus = scheduler ? taskRegistrationStatus : nil
+        self.runtimeBundleIdentifier = scheduler ? runtimeBundleIdentifier : nil
+        self.permittedBackgroundTasks = scheduler ? permittedBackgroundTasks : nil
+    }
+}
+
 enum FailureContext: String {
     case pairing, location, restoration
 }

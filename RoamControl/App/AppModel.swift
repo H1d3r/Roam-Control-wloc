@@ -68,42 +68,30 @@ final class AppModel {
         )
         self.interruptedSession = Self.recoveryRecord(in: preferences)
 
-        onDevicePairing.onFailure = { [weak self] stage in
+        onDevicePairing.onFailure = { [weak self] diagnostic in
             guard let self else { return }
-            let includeTaskState = stage == .schedulerRegistration || stage == .schedulerSubmission
             self.usageAnalytics.recordFailure(
-                stage,
+                diagnostic,
                 context: .pairing,
-                schedulerReason: self.onDevicePairing.schedulerFailureReason,
-                taskConfigurationStatus: includeTaskState ? self.onDevicePairing.taskConfigurationStatus : nil,
-                taskRegistrationStatus: includeTaskState ? self.onDevicePairing.taskRegistrationStatus : nil,
                 enabled: self.sharesAnonymousUsageStatistics
             )
         }
-        deviceSession.onFailure = { [weak self] stage in
+        deviceSession.onFailure = { [weak self] diagnostic in
             guard let self else { return }
             let restoring = self.isRestoringInterruptedSession || self.isStoppingLocationSessionForRestoration
-            let includeTaskState = stage == .schedulerRegistration || stage == .schedulerSubmission
             self.usageAnalytics.recordFailure(
-                stage,
+                diagnostic,
                 context: restoring ? .restoration : .location,
-                taskConfigurationStatus: includeTaskState ? self.deviceSession.taskConfigurationStatus : nil,
-                taskRegistrationStatus: includeTaskState ? self.deviceSession.taskRegistrationStatus : nil,
                 enabled: self.sharesAnonymousUsageStatistics
             )
         }
 
-        deviceSession.onRecoveryNeeded = { [weak self] stage in
+        deviceSession.onRecoveryNeeded = { [weak self] diagnostic in
             guard let self else { return }
             let restoring = self.isRestoringInterruptedSession || self.isStoppingLocationSessionForRestoration
-            let includeTaskState = stage == .schedulerRegistration || stage == .schedulerSubmission
             self.usageAnalytics.recordFailure(
-                stage,
+                diagnostic,
                 context: restoring ? .restoration : .location,
-                disposition: .recoverable,
-                schedulerReason: stage == .schedulerSubmission ? self.deviceSession.schedulerFailureReason : nil,
-                taskConfigurationStatus: includeTaskState ? self.deviceSession.taskConfigurationStatus : nil,
-                taskRegistrationStatus: includeTaskState ? self.deviceSession.taskRegistrationStatus : nil,
                 enabled: self.sharesAnonymousUsageStatistics
             )
         }

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check Build 58 release, scheduler and telemetry invariants without networking."""
+"""Check Build 59 release, scheduler and telemetry invariants without networking."""
 
 from pathlib import Path
 import plistlib
@@ -25,7 +25,7 @@ def function_body(source: str, signature: str) -> str:
 
 
 project = (ROOT / "RoamControl.xcodeproj/project.pbxproj").read_text()
-assert project.count("CURRENT_PROJECT_VERSION = 58;") == 2
+assert project.count("CURRENT_PROJECT_VERSION = 59;") == 2
 assert project.count("MARKETING_VERSION = 0.9.2;") == 2
 
 with (ROOT / "Configuration/RoamControl-Info.plist").open("rb") as stream:
@@ -82,10 +82,10 @@ routing_start = analytics.index("let failureContext = failure?.1")
 routing_end = analytics.index("guard let data = try? JSONEncoder().encode(payload)", routing_start)
 self_hosted_routing = analytics[routing_start:routing_end]
 
-assert "failureContext == .location ? failure?.4?.rawValue : nil" in self_hosted_routing
-assert "failureContext == .location ? failure?.5?.rawValue : nil" in self_hosted_routing
-assert "failureContext == .pairing ? failure?.4?.rawValue : nil" in self_hosted_routing
-assert "failureContext == .pairing ? failure?.5?.rawValue : nil" in self_hosted_routing
+assert "(failureContext == .location || failureContext == .restoration) ? diagnostic?.taskConfigurationStatus?.rawValue : nil" in self_hosted_routing
+assert "(failureContext == .location || failureContext == .restoration) ? diagnostic?.taskRegistrationStatus?.rawValue : nil" in self_hosted_routing
+assert "failureContext == .pairing ? diagnostic?.taskConfigurationStatus?.rawValue : nil" in self_hosted_routing
+assert "failureContext == .pairing ? diagnostic?.taskRegistrationStatus?.rawValue : nil" in self_hosted_routing
 
 session = (ROOT / "RoamControl/Services/Tunnel/LocalDeviceSessionCoordinator.swift").read_text()
 submission = function_body(session, "private func submitLocationTask()")
@@ -101,9 +101,9 @@ assert "taskConfigurationStatus = BackgroundTaskIdentifier.configurationStatus(f
 assert "taskRegistrationStatus = wasRegistered ? .accepted : .rejected" in pairing
 
 app_model = (ROOT / "RoamControl/App/AppModel.swift").read_text()
-assert "let includeTaskState = stage == .schedulerRegistration || stage == .schedulerSubmission" in app_model
-assert "taskConfigurationStatus: includeTaskState ? self.onDevicePairing.taskConfigurationStatus : nil" in app_model
-assert "taskRegistrationStatus: includeTaskState ? self.onDevicePairing.taskRegistrationStatus : nil" in app_model
+assert "onDevicePairing.onFailure = { [weak self] diagnostic in" in app_model
+assert "self.onDevicePairing.taskConfigurationStatus" not in app_model
+assert "self.deviceSession.taskConfigurationStatus" not in app_model
 
 diagnostics = (ROOT / "RoamControl/Features/Settings/ConnectionHealthView.swift").read_text()
 assert "Location task configuration:" in diagnostics
@@ -128,4 +128,4 @@ if private_config.exists():
             if path.is_file():
                 assert token not in path.read_text(errors="ignore"), f"Private token tracked in {relative}"
 
-print("Build 58 release, scheduler and consent-gate source checks passed; no network requests made.")
+print("Build 59 release, scheduler and consent-gate source checks passed; no network requests made.")

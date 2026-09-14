@@ -54,7 +54,7 @@ final class LocalDeviceSessionCoordinator: NSObject {
                 let stage = FailureStage.classify(message, fallback: .locationUnknown)
                 lastFailureStage = stage
                 lastFailureDisposition = .terminal
-                onFailure?(stage)
+                onFailure?(failureSnapshot(stage: stage))
             }
             onPhaseChange?(phase)
         }
@@ -77,9 +77,22 @@ final class LocalDeviceSessionCoordinator: NSObject {
     private(set) var taskRegistrationStatus: BackgroundTaskRegistrationStatus = .notAttempted
     private(set) var lastFailureStage: FailureStage?
     private(set) var lastFailureDisposition: FailureDisposition?
-    var onRecoveryNeeded: ((FailureStage) -> Void)?
+    var onRecoveryNeeded: ((FailureDiagnosticSnapshot) -> Void)?
     private var terminalFailureReported = false
-    var onFailure: ((FailureStage) -> Void)?
+    var onFailure: ((FailureDiagnosticSnapshot) -> Void)?
+
+    private func failureSnapshot(
+        stage: FailureStage,
+        disposition: FailureDisposition = .terminal
+    ) -> FailureDiagnosticSnapshot {
+        FailureDiagnosticSnapshot(
+            stage: stage,
+            disposition: disposition,
+            schedulerReason: schedulerFailureReason,
+            taskConfigurationStatus: taskConfigurationStatus,
+            taskRegistrationStatus: taskRegistrationStatus
+        )
+    }
 
     var onPhaseChange: ((DeviceSessionPhase) -> Void)?
 
@@ -563,7 +576,7 @@ final class LocalDeviceSessionCoordinator: NSObject {
                 self.schedulerFailureReason = SchedulerFailureReason.classify(error)
                 self.lastFailureStage = .schedulerSubmission
                 self.lastFailureDisposition = .recoverable
-                self.onRecoveryNeeded?(.schedulerSubmission)
+                self.onRecoveryNeeded?(self.failureSnapshot(stage: .schedulerSubmission, disposition: .recoverable))
                 self.submittedTaskIdentifier = nil
                 self.resolvedService = nil
                 if self.isMobileDataStartupMode {
@@ -753,7 +766,7 @@ final class LocalDeviceSessionCoordinator: NSObject {
                 let stage = FailureStage.classify(message, fallback: .locationUnknown)
                 lastFailureStage = stage
                 lastFailureDisposition = .recoverable
-                onRecoveryNeeded?(stage)
+                onRecoveryNeeded?(failureSnapshot(stage: stage, disposition: .recoverable))
                 resolvedService = nil
                 finishBackgroundTask(success: false)
                 if isMobileDataStartupMode {
