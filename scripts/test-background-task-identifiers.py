@@ -43,14 +43,15 @@ with tempfile.TemporaryDirectory() as temp:
 for component, file in [('pairing', 'Pairing/OnDevicePairingCoordinator.swift'), ('location', 'Tunnel/LocalDeviceSessionCoordinator.swift')]:
     source = (root / 'RoamControl/Services' / file).read_text()
     check = source.index(f'configurationStatus(for: "{component}")')
-    guard = source.index('guard taskConfigurationStatus == .permitted,', check)
-    registration = source.index('BGTaskScheduler.shared.register(', check)
-    assert check < guard < registration
-    assert 'return' in source[guard:registration]
-    assert f'let prefix = BackgroundTaskIdentifier.prefix(for: "{component}")' in source[guard:registration]
     if component == 'pairing':
-        assert 'request.strategy = .fail' in source
+        assert 'BGTaskScheduler.shared' not in source
+        assert 'runNativePairing()' in source[check:]
     else:
+        guard = source.index('guard taskConfigurationStatus == .permitted,', check)
+        registration = source.index('BGTaskScheduler.shared.register(', check)
+        assert check < guard < registration
+        assert 'return' in source[guard:registration]
+        assert f'let prefix = BackgroundTaskIdentifier.prefix(for: "{component}")' in source[guard:registration]
         assert 'submitTaskRequest' not in source
 info = plistlib.loads((root / 'Configuration/RoamControl-Info.plist').read_bytes())
 assert info['BGTaskSchedulerPermittedIdentifiers'] == ['$(PRODUCT_BUNDLE_IDENTIFIER).pairing.*', '$(PRODUCT_BUNDLE_IDENTIFIER).location.*']

@@ -81,14 +81,14 @@ for component, file in [('pairing','Pairing/OnDevicePairingCoordinator.swift'), 
     if component == 'location':
         source += block(code, '    private func reportSchedulerObservationFailure()') + '\n'
     start = code.index(f'        taskConfigurationStatus = BackgroundTaskIdentifier.configurationStatus(for: "{component}")')
-    end = code.index('        let identifier =', start)
-    source += '    func preflight() {\n        phase = .preparing\n        terminalFailureReported = false\n' + code[start:end] + '\n        _ = prefix\n    }\n'
+    end = code.index('        let identifier =', start) if component == 'location' else code.index('        // Pairing must not depend', start)
+    source += '    func preflight() {\n        phase = .preparing\n        terminalFailureReported = false\n' + code[start:end] + ('\n        _ = prefix\n' if component == 'location' else '\n') + '    }\n'
     source += '    func fail(_ message: String) { phase = .failed(message) }\n}\n'
-    expected_count = 1 if component == 'pairing' else 2
+    expected_count = 2 if component == 'location' else 0
     expected_event = 'RoamControl.Failure.Observed' if component == 'pairing' else 'RoamControl.Connection.RecoveryNeeded'
     expected_disposition = 'terminal' if component == 'pairing' else 'recoverable'
     callback = 'onFailure' if component == 'pairing' else 'onRecoveryNeeded'
-    source += f'''
+    source += (f'''
 do {{
     let coordinator = {component.title()}Harness()
     let recorder = Recorder()
@@ -119,7 +119,7 @@ do {{
     precondition(captured?.taskConfigurationStatus == .runtimeIdentifierNotPermitted)
     precondition(captured?.taskRegistrationStatus == .notAttempted)
 }}
-'''
+''' if component == 'location' else '')
 source += '''
 do {
     let recorder = Recorder()

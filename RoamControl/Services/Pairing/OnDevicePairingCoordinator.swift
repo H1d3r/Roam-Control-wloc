@@ -1,6 +1,6 @@
-import BackgroundTasks
 import Foundation
 import Observation
+import UIKit
 import RoamPairingFFI
 
 struct PairedDeviceDetails: Equatable, Sendable {
@@ -68,8 +68,7 @@ final class OnDevicePairingCoordinator {
     private let publisher = PairingBonjourPublisher()
     private var activeSession: OpaquePointer?
     private var activeRunIdentifier: UUID?
-    private var submittedTaskIdentifier: String?
-    private var backgroundTask: BGContinuedProcessingTask?
+    private var backgroundAssertion = UIBackgroundTaskIdentifier.invalid
     private var recordStore: RecordStore?
     private var cancellationRequested = false
     private var pendingFailureMessage: String?
@@ -117,73 +116,11 @@ final class OnDevicePairingCoordinator {
 
         taskConfigurationStatus = BackgroundTaskIdentifier.configurationStatus(for: "pairing")
 
-        guard taskConfigurationStatus == .permitted,
-              let prefix = BackgroundTaskIdentifier.prefix(for: "pairing") else {
-            recordStore = nil
-            phase = .failed(
-                "iOS could not register the secure pairing task. Close Roam Control, reopen it, and try again."
-            )
-            return
-        }
-        let identifier = "\(prefix).\(UUID().uuidString)"
-
-        let wasRegistered = BGTaskScheduler.shared.register(
-            forTaskWithIdentifier: identifier,
-            using: .main
-        ) { task in
-            guard let task = task as? BGContinuedProcessingTask else {
-                task.setTaskCompleted(success: false)
-                return
-            }
-
-            MainActor.assumeIsolated {
-                guard Self.shared.submittedTaskIdentifier == identifier,
-                      !Self.shared.cancellationRequested else {
-                    task.setTaskCompleted(success: false)
-                    return
-                }
-                Self.shared.beginPairing(with: task)
-            }
-        }
-
-        taskRegistrationStatus = wasRegistered ? .accepted : .rejected
-
-        guard wasRegistered else {
-            recordStore = nil
-            phase = .failed(
-                "iOS could not register the secure pairing task. Close Roam Control, reopen it, and try again."
-            )
-            return
-        }
-
-        submittedTaskIdentifier = identifier
-
-        let request = BGContinuedProcessingTaskRequest(
-            identifier: identifier,
-            title: "Roam Control",
-            subtitle: "Preparing secure pairing…"
-        )
-        request.strategy = .fail
-
-        Task {
-            guard submittedTaskIdentifier == identifier, phase == .preparing, !cancellationRequested else { return }
-            do {
-                try await BGTaskScheduler.shared.submitTaskRequest(request)
-                if submittedTaskIdentifier != identifier || cancellationRequested {
-                    BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: identifier)
-                }
-            } catch {
-                // Clean only this submission, including late completion from an old attempt.
-                BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: identifier)
-                guard submittedTaskIdentifier == identifier, phase == .preparing, !cancellationRequested else { return }
-                BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: identifier)
-                submittedTaskIdentifier = nil
-                recordStore = nil
-                let reason = SchedulerFailureReason.classify(error)
-                schedulerFailureReason = reason
-                phase = .failed(reason.pairingGuidance)
-            }
-        }
+        // Pairing must not depend on BGTaskScheduler. SideStore may change the runtime
+        // bundle identifier without changing the permitted BG task identifiers, and
+        // Settings necessarily backgrounds the app during Pair with Host.
+        beginBackgroundAssertion()
+        runNativePairing()
     }
 
     func cancel() {
@@ -201,11 +138,7 @@ final class OnDevicePairingCoordinator {
         if let activeSession {
             rc_remote_pairing_session_cancel(activeSession)
         }
-        if let submittedTaskIdentifier {
-            BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: submittedTaskIdentifier)
-        }
         if !workerIsRunning {
-            submittedTaskIdentifier = nil
             recordStore = nil
             phase = .idle
         }
@@ -218,23 +151,11 @@ final class OnDevicePairingCoordinator {
         }
     }
 
-    private func beginPairing(with task: BGContinuedProcessingTask) {
-        guard phase == .preparing, !workerIsRunning else {
-            task.setTaskCompleted(success: false)
-            return
-        }
-
-        backgroundTask = task
+    private func beginBackgroundAssertion() {
         backgroundTaskFinished = false
-        task.progress.totalUnitCount = 100
-        task.progress.completedUnitCount = 5
-        task.expirationHandler = { [weak self] in
-            Task { @MainActor in
-                self?.pairingTaskExpired()
-            }
+        backgroundAssertion = UIApplication.shared.beginBackgroundTask(withName: "Roam Control pairing") { [weak self] in
+            Task { @MainActor in self?.pairingTaskExpired() }
         }
-
-        runNativePairing()
     }
 
     private func runNativePairing() {
@@ -295,21 +216,11 @@ final class OnDevicePairingCoordinator {
     fileprivate func presentPIN(_ pin: String) {
         guard workerIsRunning, !cancellationRequested else { return }
         phase = .showingPIN(pin)
-        backgroundTask?.progress.completedUnitCount = 55
-        backgroundTask?.updateTitle(
-            "Roam Control pairing code",
-            subtitle: "Enter \(pin) in Settings"
-        )
     }
 
     private func advertisementDidPublish() {
         guard workerIsRunning, !cancellationRequested else { return }
         phase = .waitingForSettings
-        backgroundTask?.progress.completedUnitCount = 25
-        backgroundTask?.updateTitle(
-            "Roam Control",
-            subtitle: "Choose Pair with Roam Control in Settings"
-        )
     }
 
     private func advertisementDidFail() {
@@ -350,7 +261,6 @@ final class OnDevicePairingCoordinator {
         case .success(let record, let hostAltIRK, let device):
             storageIsRunning = true
             phase = .storing
-            backgroundTask?.progress.completedUnitCount = 80
 
             guard let recordStore else {
                 storageIsRunning = false
@@ -358,24 +268,16 @@ final class OnDevicePairingCoordinator {
                 return
             }
 
-            let storageTaskIdentifier = submittedTaskIdentifier
             Task {
                 defer { self.storageIsRunning = false }
                 do {
                     _ = try await recordStore(record, hostAltIRK)
-                    guard self.submittedTaskIdentifier == storageTaskIdentifier,
-                          self.phase == .storing else { return }
+                    guard self.phase == .storing else { return }
                     self.recordStore = nil
                     self.phase = .success(device)
-                    self.backgroundTask?.progress.completedUnitCount = 100
-                    self.backgroundTask?.updateTitle(
-                        "Roam Control",
-                        subtitle: "Pairing complete"
-                    )
                     self.finishBackgroundTask(success: true)
                 } catch {
-                    guard self.submittedTaskIdentifier == storageTaskIdentifier,
-                          self.phase == .storing else { return }
+                    guard self.phase == .storing else { return }
                     self.fail("Roam Control could not securely store the new pairing.")
                 }
             }
@@ -410,9 +312,10 @@ final class OnDevicePairingCoordinator {
     private func finishBackgroundTask(success: Bool) {
         guard !backgroundTaskFinished else { return }
         backgroundTaskFinished = true
-        backgroundTask?.setTaskCompleted(success: success)
-        backgroundTask = nil
-        submittedTaskIdentifier = nil
+        if backgroundAssertion != .invalid {
+            UIApplication.shared.endBackgroundTask(backgroundAssertion)
+            backgroundAssertion = .invalid
+        }
     }
 }
 

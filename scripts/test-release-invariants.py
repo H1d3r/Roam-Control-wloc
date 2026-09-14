@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check Build 60 release, scheduler and telemetry invariants without networking."""
+"""Check Build 61 release, scheduler and telemetry invariants without networking."""
 
 from pathlib import Path
 import plistlib
@@ -25,7 +25,7 @@ def function_body(source: str, signature: str) -> str:
 
 
 project = (ROOT / "RoamControl.xcodeproj/project.pbxproj").read_text()
-assert project.count("CURRENT_PROJECT_VERSION = 60;") == 2
+assert project.count("CURRENT_PROJECT_VERSION = 61;") == 2
 assert project.count("MARKETING_VERSION = 0.9.2;") == 2
 
 with (ROOT / "Configuration/RoamControl-Info.plist").open("rb") as stream:
@@ -98,7 +98,9 @@ pairing = (ROOT / "RoamControl/Services/Pairing/OnDevicePairingCoordinator.swift
 assert "taskConfigurationStatus: BackgroundTaskConfigurationStatus = .notChecked" in pairing
 assert "taskRegistrationStatus: BackgroundTaskRegistrationStatus = .notAttempted" in pairing
 assert "taskConfigurationStatus = BackgroundTaskIdentifier.configurationStatus(for: \"pairing\")" in pairing
-assert "taskRegistrationStatus = wasRegistered ? .accepted : .rejected" in pairing
+assert "taskRegistrationStatus = wasRegistered ? .accepted : .rejected" not in pairing
+assert "runNativePairing()" in pairing[pairing.index('func start('):pairing.index('func cancel(')]
+assert "BGTaskScheduler.shared" not in pairing
 
 app_model = (ROOT / "RoamControl/App/AppModel.swift").read_text()
 assert "onDevicePairing.onFailure = { [weak self] diagnostic in" in app_model
@@ -128,4 +130,4 @@ if private_config.exists():
             if path.is_file():
                 assert token not in path.read_text(errors="ignore"), f"Private token tracked in {relative}"
 
-print("Build 60 release, scheduler and consent-gate source checks passed; no network requests made.")
+print("Build 61 release, scheduler and consent-gate source checks passed; no network requests made.")
