@@ -87,21 +87,30 @@ rights assigned or licensed under this agreement.
 
 This agreement is governed by the laws of England and Wales.
 
-## 10. Acceptance and Signature
+## 10. Acceptance, Future Contributions and Signature
 
 This agreement takes effect when it has been accepted in writing and signed
 by the contributor.
 
-The signed agreement should identify the contribution to which it applies,
-such as by GitHub pull request number or other project reference.
+Unless otherwise agreed in writing, this agreement applies to the contribution
+identified below and to future contributions subsequently submitted by the
+same contributor to the official Roam Control project.
 
-Electronic signatures may be accepted by the project where appropriate.
+To the extent permitted by law, the assignment and fallback licence in this
+agreement apply to copyright and related rights in those future contributions
+when those rights come into existence.
+
+An electronic signature may be accepted where it demonstrates the
+contributor's intention to be bound by this agreement.
+
+The project owner should retain a copy of the signed agreement and a record
+of the version of the agreement that was accepted.
 
 Contributor legal name: ______________________________________
 
 GitHub username (if applicable): ______________________________
 
-Contribution / pull request: _________________________________
+Initial contribution / pull request: __________________________
 
 Signature: __________________________________________________
 
