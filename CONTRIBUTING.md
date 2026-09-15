@@ -2,6 +2,31 @@
 
 Thanks for helping improve Roam Control. Contributions should preserve its narrow purpose: location-based development and testing on an iPhone the user owns and controls.
 
+## Licence and contributor agreement
+
+Roam Control is source available under the licence in `LICENSE`. It is not
+open-source software.
+
+The project licence permits private personal modification but does not grant
+general permission to redistribute Roam Control, modified versions, patches,
+diffs or independent releases.
+
+You may prepare modifications for submission to the official Roam Control
+project through its contribution process.
+
+Before a contribution can be accepted or incorporated into Roam Control, the
+contributor must read and sign `CONTRIBUTOR_AGREEMENT.md`.
+
+The contributor agreement assigns rights in accepted contributions to Sean
+Howarth while preserving appropriate contributor authorship credit. This
+allows Roam Control to continue to be modified, distributed and licensed as a
+single project without giving contributors ownership of the wider Roam Control
+codebase.
+
+Opening a pull request by itself does not constitute acceptance or signature
+of the contributor agreement. Do not assume that a contribution will be
+accepted until the required agreement has been completed.
+
 ## Before opening a change
 
 - Search existing issues before creating a duplicate.

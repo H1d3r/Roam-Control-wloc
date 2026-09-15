@@ -1,73 +1,136 @@
-# PolyForm Noncommercial License 1.0.0
+# Roam Control Source-Available License
 
-<https://polyformproject.org/licenses/noncommercial/1.0.0>
+Copyright 2026 Sean Howarth. All rights reserved.
 
-## Acceptance
+This license applies to Roam Control source code and other materials made
+available under these terms.
 
-In order to get any license under these terms, you must agree to them as both strict obligations and conditions to all your licenses.
+## 1. Permission to View and Study
 
-## Copyright License
+You may access, download, view, and study the source code for personal,
+non-commercial purposes.
 
-The licensor grants you a copyright license for the software to do everything you might do with the software that would otherwise infringe the licensor's copyright in it for any permitted purpose.  However, you may only distribute the software according to [Distribution License](#distribution-license) and make changes or new works based on the software according to [Changes and New Works License](#changes-and-new-works-license).
+## 2. Personal Use
 
-## Distribution License
+You may build and use Roam Control privately for your own personal,
+non-commercial use.
 
-The licensor grants you an additional copyright license to distribute copies of the software.  Your license to distribute covers distributing the software with changes and new works permitted by [Changes and New Works License](#changes-and-new-works-license).
+## 3. Private Modification
 
-## Notices
+You may modify Roam Control for your own private, personal, non-commercial
+use and may build and use those modifications yourself.
 
-You must ensure that anyone who gets a copy of any part of the software from you also gets a copy of these terms or the URL for them above, as well as copies of any plain-text lines beginning with `Required Notice:` that the licensor provided with the software.  For example:
+This permission does not include permission to distribute, publish, sublicense,
+share, or otherwise make Roam Control or modified versions available to
+another person.
 
-> Required Notice: Copyright Yoyodyne, Inc. (http://example.com)
+## 4. Contributions to Roam Control
 
-## Changes and New Works License
+You may prepare modifications for the purpose of proposing them to the
+official Roam Control project through its designated contribution process.
 
-The licensor grants you an additional copyright license to make changes and new works based on the software for any permitted purpose.
+Submission and acceptance of contributions are subject to the project's
+separate contribution terms.
 
-## Patent License
+Permission to prepare or submit a contribution does not grant permission to
+distribute that modification independently.
 
-The licensor grants you a patent license for the software that covers patent claims the licensor can license, or becomes able to license, that you would infringe by using the software.
+## 5. No Redistribution
 
-## Noncommercial Purposes
+Except where expressly permitted by these terms or required by applicable law,
+you may not distribute, publish, sublicense, share, mirror, host, provide,
+transfer, or otherwise make available to another person:
 
-Any noncommercial purpose is a permitted purpose.
+- Roam Control source code;
+- compiled versions of Roam Control;
+- installation packages or application binaries;
+- modified or derivative versions of Roam Control; or
+- patches, diffs, or other modifications derived from Roam Control.
 
-## Personal Uses
+No permission is granted to provide unofficial releases, alternative downloads,
+mirrors, redistributed builds, or independently published or maintained public
+forks of Roam Control.
 
-Personal use for research, experiment, and testing for the benefit of public knowledge, personal study, private entertainment, hobby projects, amateur pursuits, or religious observance, without any anticipated commercial application, is use for a permitted purpose.
+Prior written permission from the copyright holder is required for any such
+distribution or publication.
 
-## Noncommercial Organizations
+## 6. Commercial Use
 
-Use by any charitable organization, educational institution, public research organization, public safety or health organization, environmental protection organization, or government institution is use for a permitted purpose regardless of the source of funding or obligations resulting from the funding.
+No commercial use of Roam Control is permitted under this license.
 
-## Fair Use
+Commercial use requires separate prior written permission from the copyright
+holder.
 
-You may have "fair use" rights for the software under the law. These terms do not limit them.
+## 7. No Sublicensing or Transfer
 
-## No Other Rights
+You may not sublicense or transfer the permissions granted under these terms
+to another person or entity.
 
-These terms do not allow you to sublicense or transfer any of your licenses to anyone else, or prevent the licensor from granting licenses to anyone else.  These terms do not imply any other licenses.
+## 8. Ownership and Reserved Rights
 
-## Patent Defense
+Roam Control is licensed, not sold.
 
-If you make any written claim that the software infringes or contributes to infringement of any patent, your patent license for the software granted under these terms ends immediately. If your company makes such a claim, your patent license ends immediately for work on behalf of your company.
+Copyright and all other rights not expressly granted by these terms remain
+with their respective copyright holders.
 
-## Violations
+Nothing in these terms transfers ownership of Roam Control or grants any
+right to distribute Roam Control except as expressly stated.
 
-The first time you are notified in writing that you have violated any of these terms, or done anything with the software not covered by your licenses, your licenses can nonetheless continue if you come into full compliance with these terms, and take practical steps to correct past violations, within 32 days of receiving notice.  Otherwise, all your licenses end immediately.
+## 9. Third-Party Software
 
-## No Liability
+Third-party software included with or used by Roam Control remains subject to
+its own copyright and license terms. These terms do not replace, restrict, or
+override rights granted by third-party licenses.
 
-***As far as the law allows, the software comes as is, without any warranty or condition, and the licensor will not be liable to you for any damages arising out of these terms or the use or nature of the software, under any kind of legal claim.***
+## 10. Roam Control 0.9.0 Beta 1 / Build 29
 
-## Definitions
+Roam Control 0.9.0 Beta 1 / Build 29 was originally released under the MIT
+License.
 
-The **licensor** is the individual or entity offering these terms, and the **software** is the software the licensor makes available under these terms.
+Nothing in these terms revokes, limits, or alters rights already granted for
+that release under the MIT License.
 
-**You** refers to the individual or entity agreeing to these terms.
+The original MIT license is preserved in LICENSE-BETA1-MIT, and the
+v0.9.0-beta.1 Git tag identifies the corresponding source.
 
-**Your company** is any legal entity, sole proprietorship, or other kind of organization that you work for, plus all organizations that have control over, are under the control of, or are under common control with that organization.  **Control** means ownership of substantially all the assets of an entity, or the power to direct its management and policies by vote, contract, or otherwise.  Control can be direct or indirect.
+Code that formed part of that release remains available under the MIT License
+when used under the terms of that release. Later changes are not offered under
+the MIT License unless explicitly stated.
 
-**Your licenses** are all the licenses granted to you for the software under these terms.
+## 11. Hosting Platform Rights
 
-**Use** means anything you do with the software requiring one of your licenses.
+These terms do not restrict rights that must be granted to a hosting platform
+under that platform's terms of service solely as necessary to host and provide
+access to this repository.
+
+Where a hosting platform's terms necessarily permit users to use built-in
+functionality such as viewing or forking a public repository, those platform
+rights apply only to the extent required by the platform's terms.
+
+They do not grant permission under this license to independently publish,
+maintain, distribute, release, or otherwise make available Roam Control or a
+modified version of Roam Control.
+
+## 12. Termination
+
+Your permissions under these terms end automatically if you materially breach
+them.
+
+If the breach is capable of being remedied, the copyright holder may choose
+to restore permission after the breach has been corrected.
+
+## 13. No Warranty
+
+To the extent permitted by law, Roam Control is provided "as is", without
+warranties or conditions of any kind.
+
+The copyright holder will not be liable for loss or damages arising from use
+of Roam Control to the extent permitted by applicable law.
+
+## 14. Other Permissions
+
+The copyright holder may grant additional or different permissions separately
+in writing.
+
+Those permissions apply only to the person or entity to whom they are granted
+and do not change these terms for anyone else.
