@@ -9,14 +9,14 @@
 </p>
 
 <p align="center">
-  <strong>Public beta:</strong> 0.9.2 Beta 5 (Build 56) · <strong>Requires:</strong> iOS 27+
+  <strong>Public beta preview:</strong> 0.9.2 Build 61 · <strong>Requires:</strong> iOS 27+
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/iOS-27%2B-blue" alt="iOS 27+">
   <img src="https://img.shields.io/badge/UI-SwiftUI-orange" alt="SwiftUI">
-  <img src="https://img.shields.io/badge/Beta-5-purple" alt="Beta 5">
-  <img src="https://img.shields.io/badge/Build-56-lightgrey" alt="Build 56">
+  <img src="https://img.shields.io/badge/Preview-Build%2061-purple" alt="Build 61 Preview">
+  <img src="https://img.shields.io/badge/Current-Build%2061-lightgrey" alt="Current Build 61">
   <img src="https://img.shields.io/badge/License-PolyForm%20NC%201.0.0-blue" alt="PolyForm Noncommercial 1.0.0">
 </p>
 
@@ -58,7 +58,9 @@ Roam Control is a source-available SwiftUI app for location-based development, q
 
 ## Install the public beta
 
-Roam Control is not distributed through the App Store or TestFlight. Download the IPA attached to the matching GitHub Release and sign it with SideStore using your own Apple account.
+Roam Control is not distributed through the App Store or TestFlight. The current public beta preview is **0.9.2 Build 61**. Download the `RoamControl-0.9.2-build61.ipa` attached to the [Build 61 release](https://github.com/seanhowarthdev/Roam-Control/releases/tag/v0.9.2-preview-build.61) and sign it with SideStore using your own Apple account.
+
+> **Current testers:** Build 61 supersedes Builds 56–60 for current beta testing. Earlier builds remain available for reference but should not be used for new installations.
 
 You will need:
 
