@@ -5,7 +5,7 @@ Roam Control is source available. It is not open-source software.
 ## Current development
 
 Current Roam Control development is made available under the
-**Roam Control Source-Available License** in `LICENSE`.
+**Roam Control Source-Available License** in [`LICENSE`](../../LICENSE).
 
 The licence permits individuals to:
 
@@ -41,7 +41,7 @@ for current and future development does not revoke rights previously granted
 for copies obtained under the PolyForm Noncommercial License.
 
 The previous licence text is preserved in
-`LICENSE-POLYFORM-NONCOMMERCIAL`.
+[`LICENSE-POLYFORM-NONCOMMERCIAL`](LICENSE-POLYFORM-NONCOMMERCIAL).
 
 ## Roam Control 0.9.0 Beta 1 / Build 29
 
@@ -49,7 +49,7 @@ Roam Control 0.9.0 Beta 1 / Build 29 was originally released under the
 MIT License.
 
 That release remains available under the MIT terms under which it was
-published. The original licence is preserved in `LICENSE-BETA1-MIT`, and the
+published. The original licence is preserved in [`LICENSE-BETA1-MIT`](LICENSE-BETA1-MIT), and the
 `v0.9.0-beta.1` Git tag identifies the corresponding source.
 
 The change to the project's current licence does not revoke or restrict rights
@@ -65,7 +65,7 @@ Permission to modify Roam Control privately or prepare a contribution does not
 by itself grant permission to distribute that modification independently.
 
 Contributions to the official Roam Control project are subject to the separate
-contribution terms described in `CONTRIBUTING.md` and the project's contributor
+contribution terms described in [`CONTRIBUTING.md`](../../CONTRIBUTING.md) and the project's contributor
 agreement.
 
 ## Third-party software
@@ -75,4 +75,4 @@ Third-party components retain their own copyright and licence terms.
 The Roam Control Source-Available License does not replace, restrict or
 override rights granted by third-party licences.
 
-See `THIRD_PARTY_NOTICES.md` for details.
+See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) for details.

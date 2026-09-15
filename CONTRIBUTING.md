@@ -15,7 +15,7 @@ You may prepare modifications for submission to the official Roam Control
 project through its contribution process.
 
 Before a contribution can be accepted or incorporated into Roam Control, the
-contributor must read and sign `CONTRIBUTOR_AGREEMENT.md`.
+contributor must read and sign [`CONTRIBUTOR_AGREEMENT.md`](Documentation/Licensing/CONTRIBUTOR_AGREEMENT.md).
 
 The contributor agreement assigns rights in accepted contributions to Sean
 Howarth while preserving appropriate contributor authorship credit. This
