@@ -1,5 +1,16 @@
 # Roam Control releases
 
+## 0.9.2 (Build 61)
+
+- Released: 14 September 2026
+- Promoted from Preview to the main 0.9.2 release: 16 September 2026
+- Package: `RoamControl-0.9.2-build61.ipa`
+- Requires: iOS 27.0 or later
+- Distribution: unsigned IPA for SideStore re-signing
+- SHA-256: `a6dde76eb02a696347be9ccfc3bff34b4a86745c0de7964811363e88fce1890d`
+- Change: pairing no longer depends on successful BGTaskScheduler registration or submission. The RPPairing listener starts directly, allowing pairing to continue on affected SideStore-resigned installations where the runtime bundle identifier does not match the permitted background-task identifier.
+- Validation: on-device pairing, Settings transition, six-digit pairing completion, pairing-record storage, location start and Stop & Restore passed before publication. Build 61 was then published as a Preview for wider real-world testing before promotion to the main 0.9.2 release.
+
 ## 0.9.2 (Build 56 — Beta 5)
 
 - Created: 13 September 2026, 21:08 BST
