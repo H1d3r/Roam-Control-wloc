@@ -12,7 +12,7 @@ body:
     id: app-version
     attributes:
       label: Roam Control version and build
-      placeholder: 0.9.1 (Build 31)
+      placeholder: e.g. version and build shown in Roam Control Settings
     validations:
       required: true
   - type: input

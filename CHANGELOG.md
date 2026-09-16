@@ -4,7 +4,11 @@ All notable public changes to Roam Control are recorded here.
 
 ## [Unreleased]
 
-Roam Control 0.9.2 Preview - Build 58. Public validation preview; Beta 6 / Build 57 remains the recommended release until validation.
+No public changes recorded yet.
+
+## [0.9.2] - 2026-09-16
+
+Roam Control 0.9.2 is the current public release. Build 61 was initially published as a Preview for wider SideStore testing and was promoted to the main 0.9.2 release on 16 September 2026.
 
 ### Fixed
 
@@ -93,6 +97,7 @@ First public beta, corresponding to app version 0.9.0 Build 29.
 - Prevented failed location updates from being counted as successful.
 - Moved the release analytics destination and Apple development-team identifier out of tracked project settings.
 
-[Unreleased]: https://github.com/seanhowarthdev/Roam-Control/compare/v0.9.1...HEAD
+[Unreleased]: https://github.com/seanhowarthdev/Roam-Control/compare/v0.9.2...HEAD
+[0.9.2]: https://github.com/seanhowarthdev/Roam-Control/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/seanhowarthdev/Roam-Control/compare/v0.9.0-beta.1...v0.9.1
 [0.9.0-beta.1]: https://github.com/seanhowarthdev/Roam-Control/releases/tag/v0.9.0-beta.1

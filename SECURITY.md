@@ -2,7 +2,7 @@
 
 ## Supported version
 
-Security fixes are currently made against the latest public beta only.
+Security fixes are currently made against the latest public release only.
 
 ## Reporting a vulnerability
 
