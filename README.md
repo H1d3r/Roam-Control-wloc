@@ -136,11 +136,11 @@ For bugs and reproducible issues, please use GitHub Issues. For security-sensiti
 
 ## Contributing
 
-Bug reports and focused improvements are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening an issue or pull request, and never upload pairing records, signing material, credentials or private location information.
+Bug reports, feature requests, testing results and technical findings are welcome through GitHub Issues. Roam Control is currently maintainer-developed and is not accepting pull requests or unsolicited code contributions. See [CONTRIBUTING.md](CONTRIBUTING.md) for details, and never upload pairing records, signing material, credentials or private location information.
 
 ## Licence
 
-Roam Control's current source is available under the [PolyForm Noncommercial License 1.0.0](LICENSE). It may be used, modified and redistributed for non-commercial purposes under those terms. Commercial use requires separate permission from the project owner.
+Roam Control's current source is available under the [Roam Control Source-Available License](LICENSE). It may be viewed, privately built and privately modified for personal, non-commercial use under those terms. Redistribution, unofficial releases and commercial use are not permitted without prior written permission from the project owner.
 
 Roam Control 0.9.0 Beta 1 was released under the MIT Licence and remains available under those terms. The licence change applies to development after Beta 1 and does not revoke rights already granted for that release.
 

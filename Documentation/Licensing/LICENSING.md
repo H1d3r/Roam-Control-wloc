@@ -61,12 +61,15 @@ under the MIT License unless explicitly stated.
 
 ## Contributions
 
-Permission to modify Roam Control privately or prepare a contribution does not
-by itself grant permission to distribute that modification independently.
+Permission to modify Roam Control privately does not by itself grant permission
+to distribute that modification independently.
 
-Contributions to the official Roam Control project are subject to the separate
-contribution terms described in [`CONTRIBUTING.md`](../../CONTRIBUTING.md) and the project's contributor
-agreement.
+Roam Control is currently maintainer-developed and is not accepting pull
+requests or unsolicited code contributions. Bug reports, feature requests,
+testing results and technical findings remain welcome through GitHub Issues.
+
+See [`CONTRIBUTING.md`](../../CONTRIBUTING.md) for the current project
+participation policy.
 
 ## Third-party software
 
